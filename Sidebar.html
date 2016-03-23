@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+    <?!= include('Sidebar.css.html'); ?>
+</head>
+<body>
+    <div class="sidebar branding-below">
+        <form>
+            <div class="block" id="button-bar">
+                <button id="add-selection-as-desired-extraction">Add selection as desidered extraction</button>
+                <button id="add-selection-as-desired-unextraction">Add selection as desired unextraction</button>
+                <button id="delete-annotations">Delete annotations</button>
+            </div>
+        </form>
+        <div class="block">
+          <input type="checkbox" checked id="use-highlight">
+          <label for="use-highlight">Highlight</label>
+        </div>
+        <div class="block">
+            <div id="error" class="error"></div>
+            <h3>Traning set:</h3>
+            <table id="training-set">
+                <tr>
+                    <th>type</th>
+                    <th>start</th>
+                    <th>end</th>
+                    <th>txt</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?!= include('Sidebar.js.html'); ?>
+</body>
+</html>

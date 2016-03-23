@@ -1,0 +1,106 @@
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script>
+/*global $,google*/
+
+/**
+ * Show error message in sidebar
+ * @param  {String} msg   error message given by the server
+ */
+function showError(msg) {
+    $('div#error').text(msg);
+}
+
+/**
+ * Add annotation given by the server to the list
+ * @param {Annotation} annotation   annotation given by the server
+ */
+function addAnnotationToList(annotation) {
+    // Reset error message, as this is a success handler
+    $('div#error').empty();
+
+    var type;
+    if (annotation.match === true) {
+        type = "extraction";
+    } else {
+        type = "unextraction";
+    }
+
+    // Add row to table
+    $("#training-set").append(
+        "<tr>" +
+            "<td>" + type + "</td>" +
+            "<td>" + annotation.startOffset + "</td>" +
+            "<td>" + annotation.endOffset + "</td>" +
+            "<td>" + annotation.text + "</td>" +
+            "</tr>"
+    );
+}
+
+/**
+ * Ask server to add current selection as annotation
+ * @param {Boolean} match   extraction (true) / unextraction (false)
+ */
+function addSelectionAsAnnotation(match) {
+    google.script.run
+        .withSuccessHandler(addAnnotationToList)
+        .withFailureHandler(showError)
+        .addSelectionAsAnnotation(match);
+}
+
+/**
+ * Delete from list annotations given by the server
+ * @param  {[Annotation]} annotations   list of annotations to be deleted
+ */
+function deleteAnnotationsFromList(annotations) {
+    // Empty error message since this is a success error handler
+    $('div#error').empty();
+
+    // Loop over all retrieved annotations to be deleted
+    annotations.forEach(function (annotation) {
+        // Loop over every row of the table
+        $("table#training-set > tbody > tr").each(function () {
+            var children = $(this).children().toArray();
+            if (parseInt(children[1].innerText, 10) === annotation.startOffset &&
+                    parseInt(children[2].innerText, 10) === annotation.endOffset) {
+                $(this).remove();
+            }
+        });
+    });
+}
+
+/**
+ * Ask server to delete current selected annotations
+ * @return {[type]} [description]
+ */
+function deleteAnnotations() {
+    google.script.run
+        .withSuccessHandler(deleteAnnotationsFromList)
+        .withFailureHandler(showError)
+        .deleteSelectedAnnotations();
+
+    return false;
+}
+
+/*
+ * Hook buttons to actions
+ */
+$(function () {
+    $('#add-selection-as-desired-extraction').click(function () {
+        addSelectionAsAnnotation(true);
+        return false;
+    });
+
+    $('#add-selection-as-desired-unextraction').click(function () {
+        addSelectionAsAnnotation(false);
+        return false;
+    });
+    $('#delete-annotations').click(deleteAnnotations);
+    $("#use-highlight").change(function () {
+        if (!this.checked) {
+            google.script.run.resetBackground();
+        } else {
+            google.script.run.reEnableBackground();
+        }
+    });
+});
+</script>
