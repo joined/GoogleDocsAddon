@@ -1,106 +1,176 @@
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
 <script>
-/*global $,google*/
-
 /**
- * Show error message in sidebar
- * @param  {String} msg   error message given by the server
+ * Show an error message
+ * @param  {String} error   the error text
  */
-function showError(msg) {
-    $('div#error').text(msg);
+function showError(error) {
+    $("div.error").text(error);
 }
 
 /**
- * Add annotation given by the server to the list
- * @param {Annotation} annotation   annotation given by the server
+ * Orders rows of training set table in ascending order
  */
-function addAnnotationToList(annotation) {
-    // Reset error message, as this is a success handler
-    $('div#error').empty();
+function orderTrainingSetRows() {
+    var $table  = $('#training-set'),
+        $rows   = $('tbody > tr', $table);
 
-    var type;
-    if (annotation.match === true) {
-        type = "extraction";
-    } else {
-        type = "unextraction";
+    $rows.sort(function(a, b) {
+        return ($(a).data('start') > $(b).data('start')) ? 1 : 0;
+    });
+
+    $rows.each(function(index, row){
+      $table.append(row);                  // append rows after sort
+    });
+}
+
+/**
+ * Updates "Start" button status, enabling it only if there is at least one
+ * desired extraction and one desired unextractions and the other way around
+ */
+function updateButtonStatus() {
+    if ($("#start").prop('disabled') &&
+        $("#training-set > tbody > tr > td.desired-extraction").length >= 1 &&
+        $("#training-set > tbody > tr > td.desired-unextraction").length >= 1) {
+        $("#start").prop('disabled', false);
     }
 
-    // Add row to table
+    if (!$("#start").prop('disabled') &&
+        !($("#training-set > tbody > tr > td.desired-extraction").length >= 1 &&
+        $("#training-set > tbody > tr > td.desired-unextraction").length >= 1)) {
+        $("#start").prop('disabled', true);
+    }
+}
+
+/**
+ * Adds a new annotation to the training set table
+ * @param {TextRange} annotation   the new annotation
+ * @param {String} type            type of the annotation (extr/unextr)
+ */
+function addAnnotationToTable(annotation, type) {
+    // If it's the first annotation we add, delete the "empty" placeholder
+    if (!$("table#training-set > tbody > tr").length) {
+        $("span.empty-training-set").hide();
+    }
+
     $("#training-set").append(
-        "<tr>" +
-            "<td>" + type + "</td>" +
-            "<td>" + annotation.startOffset + "</td>" +
-            "<td>" + annotation.endOffset + "</td>" +
-            "<td>" + annotation.text + "</td>" +
-            "</tr>"
+        "<tr data-start='" + annotation.startOffset + "'>" +
+        "<td class='annotation-type " + type + "'></td>" +
+        "<td class='annotation'>" + annotation.text + "</td>" +
+        "<td class='button-cell'><a class='delete-annotation' href='#'><img src='https://openmerchantaccount.com/img2/close_1.png' width='24' height='22' alt='remove item' border='0'></a></td>"
     );
+
+    orderTrainingSetRows();
+
+    updateButtonStatus();
 }
 
-/**
- * Ask server to add current selection as annotation
- * @param {Boolean} match   extraction (true) / unextraction (false)
- */
-function addSelectionAsAnnotation(match) {
+$(function(){
+    // Load previously saved annotations
     google.script.run
-        .withSuccessHandler(addAnnotationToList)
-        .withFailureHandler(showError)
-        .addSelectionAsAnnotation(match);
-}
+        .withSuccessHandler(function (annotations) {
+            var desiredExtractions   = annotations[0],
+                desiredUnextractions = annotations[1];
 
-/**
- * Delete from list annotations given by the server
- * @param  {[Annotation]} annotations   list of annotations to be deleted
- */
-function deleteAnnotationsFromList(annotations) {
-    // Empty error message since this is a success error handler
-    $('div#error').empty();
-
-    // Loop over all retrieved annotations to be deleted
-    annotations.forEach(function (annotation) {
-        // Loop over every row of the table
-        $("table#training-set > tbody > tr").each(function () {
-            var children = $(this).children().toArray();
-            if (parseInt(children[1].innerText, 10) === annotation.startOffset &&
-                    parseInt(children[2].innerText, 10) === annotation.endOffset) {
-                $(this).remove();
+            if (desiredExtractions !== null) {
+                for (var i = 0; i < desiredExtractions.length; i++) {
+                    addAnnotationToTable(desiredExtractions[i], 'desired-extraction');
+                }
             }
-        });
-    });
-}
+            if (desiredUnextractions !== null) {
+                for (var j = 0; j < desiredUnextractions.length; j++) {
+                    addAnnotationToTable(desiredUnextractions[j], 'desired-unextraction');
+                }
+            }
+        })
+        .getSavedAnnotations();
 
-/**
- * Ask server to delete current selected annotations
- * @return {[type]} [description]
- */
-function deleteAnnotations() {
-    google.script.run
-        .withSuccessHandler(deleteAnnotationsFromList)
-        .withFailureHandler(showError)
-        .deleteSelectedAnnotations();
+    // Add selection as desired extraction / unextraction
+    $('.add-selection').click(function () {
+        var button = $(this);
+        google.script.run
+            .withSuccessHandler(function (annotation) {
+                // Reset error message
+                $('div.error').empty();
 
-    return false;
-}
+                addAnnotationToTable(annotation, button.data('type'));
+            })
+            .withFailureHandler(showError)
+            .addSelectionAsAnnotation(button.data('type'));
 
-/*
- * Hook buttons to actions
- */
-$(function () {
-    $('#add-selection-as-desired-extraction').click(function () {
-        addSelectionAsAnnotation(true);
         return false;
     });
 
-    $('#add-selection-as-desired-unextraction').click(function () {
-        addSelectionAsAnnotation(false);
+    // Open highlight colors editor modal
+    $('#edit-colors').click(function () {
+        google.script.run.showColorsModal();
+
         return false;
     });
-    $('#delete-annotations').click(deleteAnnotations);
+
+    // Highlight enabling / disabling
     $("#use-highlight").change(function () {
         if (!this.checked) {
             google.script.run.resetBackground();
         } else {
-            google.script.run.reEnableBackground();
+            google.script.run.reDrawHighlights();
         }
+    });
+
+    // Run the extractor
+    $("button#start").click(function() {
+        google.script.run
+            .withFailureHandler(showError)
+            .withSuccessHandler(function(query){
+                $("div.query").append('Query: ' + JSON.stringify(query, null, 2));
+            })
+            .runExtractor();
+    });
+
+    // Reset addon status
+    $("button#reset").click(function() {
+        google.script.run
+            .withFailureHandler(showError)
+            .withSuccessHandler(function(){
+                $("table#training-set > tbody > tr").each(function() {
+                    $(this).remove();
+                });
+
+                $("span.empty-training-set").show();
+                $("div.error").empty();
+                $("div.query").empty();
+            })
+            .resetEverything();
+    });
+
+    // Export system extractions to new document
+    $("button#export").click(function() {
+        google.script.run
+            .withFailureHandler(showError)
+            .exportExtractions();
+    });
+
+    // Annotation deletion
+    $(document).on('click', 'a.delete-annotation', function () {
+        var $anchor = $(this);
+        var $row = $anchor.parent().parent();
+        var startOffset = $row.data('start');
+
+        google.script.run
+            .withSuccessHandler(function() {
+                $row.remove();
+
+                updateButtonStatus();
+
+                // If there aren't any annotations show the "empty" placeholder
+                if (!$("table#training-set > tbody > tr").length) {
+                    $("span.empty-training-set").show();
+                }
+            })
+            .withFailureHandler(showError)
+            .deleteAnnotation(startOffset);
+
+        return false;
     });
 });
 </script>

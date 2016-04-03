@@ -1,0 +1,28 @@
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
+<script>
+$(function () {
+    // Load stored highlight colors
+    google.script.run
+        .withSuccessHandler(function (highlightColors) {
+            $('#des-extr-color').val(highlightColors[0]);
+            $('#des-unextr-color').val(highlightColors[1]);
+            $('#sys-extr-color').val(highlightColors[2]);
+        })
+        .getHighlightColors();
+
+    // Save to server new highlight colors, then close modal
+    $('#save-colors').click(function () {
+        var desiredExtractionsColor   = $('#des-extr-color').val(),
+            desiredUnextractionsColor = $('#des-unextr-color').val(),
+            sysExtractionsColor       = $('#sys-extr-color').val();
+
+        google.script.run
+            .saveNewHighlightColors([desiredExtractionsColor,
+                                     desiredUnextractionsColor,
+                                     sysExtractionsColor]);
+        google.script.host.close();
+
+        return false;
+    });
+});
+</script>

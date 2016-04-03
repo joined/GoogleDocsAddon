@@ -1,110 +1,31 @@
-/*global DocumentApp, PropertiesService, HtmlService, Logger, Annotation, AnnotationsStore*/
-/*jslint vars: true*/
-
 /**
- * Deletes all saved user properties
+ * Trigger that is fired when the document is opened
  */
-function deleteAllUserProperties() {
-    var userProperties = PropertiesService.getUserProperties();
-    userProperties.deleteAllProperties();
-}
-
-/**
- * Saves default user properties
- */
-function saveDefaultProperties() {
-    var userProperties = PropertiesService.getUserProperties();
-
-    userProperties.setProperty('ANNOTATIONS_N', '0');
-
-    userProperties.setProperty('DEFAULT_COL', '#ffffff'); // Default color
-    userProperties.setProperty('DES_EXTR_COL', '#00ff00'); // Desired extraction color
-    userProperties.setProperty('DES_UNEXTR_COL', '#ff0000'); // Desired extraction color
-    userProperties.setProperty('SYS_EXTR_COL', '#0000ff');  // System extraction color
-}
-
-/**
- * Resets document background to default color
- * @return {[type]} [description]
- */
-function resetBackground() {
-    var body = DocumentApp
-            .getActiveDocument()
-            .getBody();
-
-    var userProperties = PropertiesService.getUserProperties();
-    var defaultColor = userProperties.getProperty('DEFAULT_COL');
-    var bodyLength = body.editAsText().getText().length - 1;
-
-    body
-        .editAsText()
-        .setBackgroundColor(0, bodyLength, defaultColor);
-}
-
-/**
- * Restores annotations background after reset
- */
-function reEnableBackground() {
-    var i, savedAnnotations = AnnotationsStore.getSavedAnnotations();
-
-    var body = DocumentApp
-            .getActiveDocument()
-            .getBody();
-
-    var userProperties = PropertiesService.getUserProperties();
-    var desiredExtractionColor = userProperties.getProperty('DES_EXTR_COL'),
-        desiredUnextractionColor = userProperties.getProperty('DES_UNEXTR_COL');
-
-    for (i = 0; i < savedAnnotations.length; i += 1) {
-        if (savedAnnotations[i].match) {
-            body
-                .editAsText()
-                .setBackgroundColor(savedAnnotations[i].startOffset,
-                                    savedAnnotations[i].endOffset,
-                                    desiredExtractionColor);
-        } else {
-            body
-                .editAsText()
-                .setBackgroundColor(savedAnnotations[i].startOffset,
-                                    savedAnnotations[i].endOffset,
-                                    desiredUnextractionColor);
-        }
-
-
-    }
-}
-
-/**
- * Trigger activated when the document is opened
- */
-/*jslint unparam: true*/
-function onOpen(e) {
+function onOpen() {
     DocumentApp
         .getUi()
         .createAddonMenu()
         .addItem('Start', 'showSidebar')
         .addToUi();
 
-
-    // For testing purposes, we reset the document highlighting upon opening
+    // Delete everything that was saved in the Store, remove any higlightings
+    // and save the default highlight colors in the Store
+    Store.reset();
     resetBackground();
-
-    // Reset saved properties and save the default ones
-    deleteAllUserProperties();
-    saveDefaultProperties();
+    saveDefaultColors();
 }
 
 /**
- * Trigger activated when he addon is installed
+ * Trigger that is fired when the addon is installed
  */
-function onInstall(e) {
+function onInstall() {
     onOpen(e);
 }
 
 /**
- * HTML templating function
+ * Used to include files with scriptlet tags in HTML
  * @param  {String} filename   name of the file to be included
- * @return {String}            file contents
+ * @return {String}            contents of the file
  */
 function include(filename) {
     return HtmlService
@@ -113,13 +34,13 @@ function include(filename) {
 }
 
 /**
- * Opens the sidebar generating the HTML from the template
+ * Creates from template and opens sidebar
  */
 function showSidebar() {
     var ui = HtmlService
         .createTemplateFromFile('Sidebar')
         .evaluate()
-        .setTitle('Find similar items')
+        .setTitle('Entity Extractor')
         .setSandboxMode(HtmlService.SandboxMode.IFRAME);
 
     DocumentApp
@@ -128,10 +49,20 @@ function showSidebar() {
 }
 
 /**
- * Converts local offset (i.e. referred to the paragraph start) to global
- * @param  {Integer} paragraphNumber   number of the paragraph the offset is referred to
- * @param  {Integer} localOffset       local offset (referred to the paragraph)
- * @return {Integer}                   global offset (referred to the document start)
+ * Save to the Store the default highlight colors
+ */
+function saveDefaultColors() {
+    Store.set('desired-extractions-color', '#3b8e00');
+    Store.set('desired-unextractions-color', '#b0281a');
+    Store.set('system-extractions-color', '#4c8ffb');
+    Store.set('default-color', '#ffffff');
+}
+
+/**
+ * Convert a local offset (i.e. a (paragraph, offset) tuple) to a global one
+ * @param  {Number} paragraphNumber number of the paragraph
+ * @param  {Number} localOffset     offset in the paragraph
+ * @return {Number}                 global offset
  */
 function localOffsetToGlobal(paragraphNumber, localOffset) {
     var paragraphs = DocumentApp
@@ -141,7 +72,7 @@ function localOffsetToGlobal(paragraphNumber, localOffset) {
 
     var i, globalOffset = localOffset;
 
-    for (i = 0; i < paragraphNumber; i += 1) {
+    for (i = 0; i < paragraphNumber; i++) {
         globalOffset += paragraphs[i].getText().length + 1;
     }
 
@@ -149,18 +80,25 @@ function localOffsetToGlobal(paragraphNumber, localOffset) {
 }
 
 /**
- * Verifies if an annotation is allowed (i.e. not overlapping with an existing one)
- * @param  {Annotation} newAnnotation   new annotation to be checked for
- * @return {Boolean}                    allowed or not
+ * Checks if a new annotation is allowed, i.e. it's not overlapping with any
+ * of the saved annotations
+ * @param  {TextRange}  newTextRange   the new annotation
+ * @return {Boolean}                   true if it's allowed, false otherwise
  */
-function isAnnotationAllowed(newAnnotation) {
-    var i, annotations = AnnotationsStore.getSavedAnnotations();
+function isAnnotationAllowed(newTextRange) {
+    var desiredExtractions   = Store.get('desired-extractions'),
+        desiredUnextractions = Store.get('desired-unextractions');
 
     // Loop over existing annotations looking for overlapping
-    for (i = 0; i < annotations.length; i += 1) {
-        if (Math.max(annotations[i].startOffset, newAnnotation.startOffset) <=
-                Math.min(annotations[i].endOffset, newAnnotation.endOffset)) {
-            return false;
+    if (desiredExtractions !== null) {
+        for (var i = 0; i < desiredExtractions.length; i++) {
+            if (TextRange.areOverlapping(desiredExtractions[i], newTextRange)) return false;
+        }
+    }
+
+    if (desiredUnextractions !== null) {
+        for (var j = 0; j < desiredUnextractions.length; j++) {
+            if (TextRange.areOverlapping(desiredUnextractions[j], newTextRange)) return false;
         }
     }
 
@@ -168,15 +106,15 @@ function isAnnotationAllowed(newAnnotation) {
 }
 
 /**
- * Get current selection as global start and end offsets
- * @return {[Integer]} list with start and end offsets
+ * Gets current selection as a TextRange element
+ * @return {TextRange} text range representing the selection
  */
-function getSelectionAsGlobalOffsets() {
+function getSelectionAsTextRange() {
     var selection = DocumentApp
         .getActiveDocument()
         .getSelection();
 
-    if (!selection) {throw "You must select something"; }
+    if (!selection) throw "You must select something";
 
     var rangeElements = selection.getRangeElements();
     var selectionFirstElement = rangeElements[0],
@@ -215,92 +153,268 @@ function getSelectionAsGlobalOffsets() {
     var startGlobalOffset = localOffsetToGlobal(startParagraphNumber, startOffset),
         endGlobalOffset = localOffsetToGlobal(endParagraphNumber, endOffset);
 
-    return [startGlobalOffset, endGlobalOffset];
-}
-
-/**
- * Add current selection as annotation
- * @param {Boolean} match   desired extraction (true) or unextraction (false)
- */
-function addSelectionAsAnnotation(match) {
-    var userProperties = PropertiesService.getUserProperties();
-
-    var offsets = getSelectionAsGlobalOffsets();
-    var startGlobalOffset = offsets[0],
-        endGlobalOffset   = offsets[1];
-
-    var body = DocumentApp
-            .getActiveDocument()
-            .getBody();
-
     var selectionText = body
         .editAsText()
         .getText()
-        .substr(startGlobalOffset, endGlobalOffset - startGlobalOffset + 1);
+        .substring(startGlobalOffset, endGlobalOffset + 1);
 
-    var newAnnotation = new Annotation(match,
-                                       startGlobalOffset,
-                                       endGlobalOffset,
-                                       selectionText);
+    return new TextRange(startGlobalOffset, endGlobalOffset, selectionText);
+}
+
+/**
+ * Saves current selection as desired extraction/unextraction, returning
+ * the new text range
+ * @param {String} type   type of annotation, can be 'desired-extraction' or 'desired-unxtraction'
+ * @return {TextRange}    the text range corresponding to the current selection
+ */
+function addSelectionAsAnnotation(type) {
+    var newAnnotation = getSelectionAsTextRange();
 
     if (!isAnnotationAllowed(newAnnotation)) {
         throw "Annotation overlapping, not allowed";
     }
 
-    // Desired extraction
-    if (match === true) {
-        body
-            .editAsText()
-            .setBackgroundColor(startGlobalOffset, endGlobalOffset, userProperties.getProperty('DES_EXTR_COL'));
-    // Desired unextraction
+    var highlightColor;
+    if (type === 'desired-extraction') {
+        Store.pushElementToArray('desired-extractions', newAnnotation);
+        highlightColor = Store.get('desired-extractions-color');
+    } else if (type === 'desired-unextraction') {
+        Store.pushElementToArray('desired-unextractions', newAnnotation);
+        highlightColor = Store.get('desired-unextractions-color');
     } else {
-        body
-            .editAsText()
-            .setBackgroundColor(startGlobalOffset, endGlobalOffset, userProperties.getProperty('DES_UNEXTR_COL'));
+        throw 'Invalid annotation type';
     }
 
-    AnnotationsStore.saveAnnotation(newAnnotation);
-
-    return newAnnotation;
-}
-
-/**
- * Deletes annotations that overlap with current selection
- * @return {[Annotation]} list of deleted annotations
- */
-function deleteSelectedAnnotations() {
     var body = DocumentApp
         .getActiveDocument()
         .getBody();
 
-    var offsets = getSelectionAsGlobalOffsets();
-    var startGlobalOffset = offsets[0],
-        endGlobalOffset   = offsets[1];
+    body
+        .editAsText()
+        .setBackgroundColor(newAnnotation.startOffset,
+                            newAnnotation.endOffset,
+                            highlightColor);
 
-    var userProperties = PropertiesService.getUserProperties();
+    return newAnnotation;
+}
 
-    var i,
-        savedAnnotations = AnnotationsStore.getSavedAnnotations(),
-        annotationsToDelete = [];
 
-    for (i = 0; i < savedAnnotations.length; i += 1) {
-        if (Math.max(startGlobalOffset, savedAnnotations[i].startOffset) <=
-                Math.min(endGlobalOffset, savedAnnotations[i].endOffset)) {
-            annotationsToDelete.push(savedAnnotations[i]);
+/**
+ * Opens a modal to change the highlight colors
+ */
+function showColorsModal() {
+    var html = HtmlService
+        .createTemplateFromFile('EditColorModal')
+        .evaluate()
+        .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+        .setWidth(400)
+        .setHeight(170);
 
-            AnnotationsStore.deleteAnnotation(savedAnnotations[i]);
+    DocumentApp
+        .getUi()
+        .showModalDialog(html, 'Edit Highlight Colors');
+}
 
-            body
-                .editAsText()
-                .setBackgroundColor(savedAnnotations[i].startOffset,
-                                    savedAnnotations[i].endOffset,
-                                    userProperties.getProperty('DEFAULT_COL'));
+/**
+ * Saves to the store a new list of highlight colors
+ * @param  {Object} colorsList   array of colors encoded as strings
+ */
+function saveNewHighlightColors(colorsList) {
+    Store.set('desired-extractions-color',   colorsList[0]);
+    Store.set('desired-unextractions-color', colorsList[1]);
+    Store.set('system-extractions-color',    colorsList[2]);
+
+    reDrawHighlights();
+}
+
+/**
+ * Gets current stored highlight colors
+ * @return {Object} array of colors encoded as strings
+ */
+function getHighlightColors() {
+    var desiredExtractionsColor   = Store.get('desired-extractions-color');
+        desiredUnextractionsColor = Store.get('desired-unextractions-color');
+        sysExtractionsColor       = Store.get('system-extractions-color');
+
+    return [desiredExtractionsColor, desiredUnextractionsColor, sysExtractionsColor];
+}
+
+/**
+ * Deletes any highlight in the document setting its background
+ * to the default color
+ */
+function resetBackground() {
+    var body = DocumentApp
+            .getActiveDocument()
+            .getBody();
+
+    var defaultColor = Store.get('default-color');
+    var bodyLength = body.editAsText().getText().length - 1;
+
+    body
+        .editAsText()
+        .setBackgroundColor(0, bodyLength, defaultColor);
+}
+
+/**
+ * Draws the highlights corresponding to the saved annotations
+ */
+function reDrawHighlights() {
+    var desiredExtractions   = Store.get('desired-extractions'),
+        desiredUnextractions = Store.get('desired-unextractions'),
+        desiredExtractionsColor   = Store.get('desired-extractions-color'),
+        desiredUnextractionsColor = Store.get('desired-unextractions-color');
+
+    var body = DocumentApp
+            .getActiveDocument()
+            .getBody();
+
+    for (var i = 0; i < desiredExtractions.length; i++) {
+        body
+            .editAsText()
+            .setBackgroundColor(desiredExtractions[i].startOffset,
+                                desiredExtractions[i].endOffset,
+                                desiredExtractionsColor);
+    }
+
+    for (var j = 0; j < desiredUnextractions.length; j++) {
+        body
+            .editAsText()
+            .setBackgroundColor(desiredUnextractions[j].startOffset,
+                                desiredUnextractions[j].endOffset,
+                                desiredUnextractionsColor);
+    }
+}
+
+/**
+ * Gets desired extractions/unextractions saved in the store
+ * @return {Object} array of desired extractions and unextractions
+ */
+function getSavedAnnotations() {
+    return [Store.get('desired-extractions'), Store.get('desired-unextractions')];
+}
+
+/**
+ * Deletes an annotation given its start offset
+ * @param  {Number} startOffset the annotation start offset
+ */
+function deleteAnnotation(startOffset) {
+    var desiredExtractions   = Store.get('desired-extractions'),
+        desiredUnextractions = Store.get('desired-unextractions'),
+        defaultColor         = Store.get('default-color');
+
+    var body = DocumentApp
+        .getActiveDocument()
+        .getBody();
+
+    if (desiredExtractions !== null) {
+        for (var i = 0; i < desiredExtractions.length; i++) {
+            if (desiredExtractions[i].startOffset === startOffset) {
+                body
+                    .editAsText()
+                    .setBackgroundColor(desiredExtractions[i].startOffset,
+                                        desiredExtractions[i].endOffset,
+                                        defaultColor);
+
+                desiredExtractions.splice(i, 1);
+
+                Store.set('desired-extractions', desiredExtractions);
+
+                return;
+            }
         }
     }
 
-    if (annotationsToDelete.length) {
-        return annotationsToDelete;
+    if (desiredUnextractions !== null) {
+        for (var j = 0; j < desiredUnextractions.length; j++) {
+            if (desiredUnextractions[j].startOffset === startOffset) {
+                body
+                    .editAsText()
+                    .setBackgroundColor(desiredUnextractions[j].startOffset,
+                                        desiredUnextractions[j].endOffset,
+                                        defaultColor);
+
+                desiredUnextractions.splice(j, 1);
+
+                Store.set('desired-unextractions', desiredUnextractions);
+
+                return;
+            }
+        }
+    }
+}
+
+/**
+ * Run the extractor with the current desired extractions / unextractions
+ * @return {TextRange} text range representing the query
+ */
+function runExtractor() {
+    var body = DocumentApp
+        .getActiveDocument()
+        .getBody();
+
+    var bodyText = body
+        .editAsText()
+        .getText();
+
+    var desiredExtractions   = Store.get('desired-extractions'),
+        desiredUnextractions = Store.get('desired-unextractions'),
+        sysExtractionsColor  = Store.get('system-extractions-color');
+
+    var ee = new EntityExtractor(bodyText, desiredExtractions, desiredUnextractions);
+
+    ee.run();
+
+    var systemExtractions = ee.getSystemExtractions(),
+        query             = ee.getQuery();
+
+    Store.set('system-extractions', systemExtractions);
+
+    // Highlight the system extractions. Needs to be fixed to show
+    // conflicts between desired extractions / unextractions and
+    // system extractions
+    for (var i = 0; i < systemExtractions.length; i++) {
+        body
+            .editAsText()
+            .setBackgroundColor(systemExtractions[i].startOffset,
+                                systemExtractions[i].endOffset - 1,
+                                sysExtractionsColor);
     }
 
-    throw "No annotation selected";
+    return query;
+}
+
+/**
+ * Reset the addon status
+ */
+function resetEverything() {
+    Store.reset();
+    resetBackground();
+    saveDefaultColors();
+
+    return;
+}
+
+/**
+ * Exports current saved system extractions to a new document, one line each
+ */
+function exportExtractions() {
+    var exportDoc = DocumentApp.create("Extractions export"),
+        systemExtractions = Store.get('system-extractions');
+
+    if (systemExtractions === null) throw "No system extractions available";
+
+    var body = exportDoc.getBody();
+
+    body.appendParagraph(systemExtractions.map(function(systemExtraction) {return systemExtraction.text;}).join('\n'));
+
+    var html = HtmlService
+        .createHtmlOutput('<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">' +
+                          'The system extractions were exported. ' +
+                          '<a target="_blank" href="https://docs.google.com/document/d/' + exportDoc.getId() + '/edit#gid=0">Link</a>')
+        .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+        .setWidth(300)
+        .setHeight(50);
+
+    DocumentApp.getUi().showModalDialog(html, 'System extractions export');
 }

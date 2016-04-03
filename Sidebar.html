@@ -1,36 +1,45 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <base target="_top">
     <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
     <?!= include('Sidebar.css.html'); ?>
 </head>
+
 <body>
-    <div class="sidebar branding-below">
-        <form>
-            <div class="block" id="button-bar">
-                <button id="add-selection-as-desired-extraction">Add selection as desidered extraction</button>
-                <button id="add-selection-as-desired-unextraction">Add selection as desired unextraction</button>
-                <button id="delete-annotations">Delete annotations</button>
+    <div class="frame">
+        <div class="block">
+            <h3>Add selection as:</h3>
+            <form>
+                <div class="block" id="button-bar">
+                    <button data-type="desired-extraction" class="add-selection">Desired extraction</button>
+                    <button data-type="desired-unextraction" class="add-selection">Desired unextraction</button>
+                </div>
+            </form>
+        </div>
+        <div class="block error"></div>
+        <div class="block">
+            <input type="checkbox" checked id="use-highlight">
+            <label for="use-highlight">Highlight annotations (<a href="#" id="edit-colors">Edit</a>)</label>
+        </div>
+        <div class="block">
+            <h3>Training set:</h3>
+            <div class="training-set">
+                <span class="empty-training-set gray">Empty</span>
+                <table id="training-set">
+                </table>
             </div>
-        </form>
-        <div class="block">
-          <input type="checkbox" checked id="use-highlight">
-          <label for="use-highlight">Highlight</label>
         </div>
         <div class="block">
-            <div id="error" class="error"></div>
-            <h3>Traning set:</h3>
-            <table id="training-set">
-                <tr>
-                    <th>type</th>
-                    <th>start</th>
-                    <th>end</th>
-                    <th>txt</th>
-                </tr>
-            </table>
+            <button disabled id="start" class="action">Start</button>
+            <button id="reset">Reset</button>
+            <button class="create" id="export">Export</button>
         </div>
+        <div class="block query"></div>
     </div>
+
     <?!= include('Sidebar.js.html'); ?>
 </body>
+
 </html>

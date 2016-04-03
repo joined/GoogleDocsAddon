@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+</head>
+<body>
+    <form>
+    <div class="block">
+        <label for="des-extr-color">Desired extraction color:</label>
+        <input type="color" id="des-extr-color">
+    </div>
+    <div class="block">
+        <label for="des-unextr-color">Desired unextraction color:</label>
+        <input type="color" id="des-unextr-color">
+    </div>
+    <div class="block">
+        <label for="sys-extr-color">System extraction color:</label>
+        <input type="color" id="sys-extr-color">
+    </div>
+    <div class="block">
+        <button id="save-colors">Save</button>
+    </div>
+    </form>
+    <?!= include('EditColorModal.js.html'); ?>
+</body>
+</html>
