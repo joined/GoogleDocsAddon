@@ -260,10 +260,13 @@ function resetBackground() {
  * Draws the highlights corresponding to the saved annotations
  */
 function reDrawHighlights() {
-    var desiredExtractions   = Store.get('desired-extractions'),
-        desiredUnextractions = Store.get('desired-unextractions'),
+    var savedAnnotations = getSavedAnnotations(),
+        desiredExtractions   = savedAnnotations.desiredExtractions,
+        desiredUnextractions = savedAnnotations.desiredUnextractions,
+        systemExtractions    = savedAnnotations.systemExtractions,
         desiredExtractionsColor   = Store.get('desired-extractions-color'),
         desiredUnextractionsColor = Store.get('desired-unextractions-color');
+        systemExtractionsColor = Store.get('system-extractions-color');
 
     var body = DocumentApp
             .getActiveDocument()
@@ -284,14 +287,24 @@ function reDrawHighlights() {
                                 desiredUnextractions[j].endOffset,
                                 desiredUnextractionsColor);
     }
+
+    for (var k = 0; k < systemExtractions.length; k++) {
+        body
+            .editAsText()
+            .setBackgroundColor(systemExtractions[k].startOffset,
+                                systemExtractions[k].endOffset,
+                                systemExtractionsColor);
+    }
 }
 
 /**
- * Gets desired extractions/unextractions saved in the store
+ * Gets desired extractions/unextractions and system extractions saved in the store
  * @return {Object} array of desired extractions and unextractions
  */
 function getSavedAnnotations() {
-    return [Store.get('desired-extractions'), Store.get('desired-unextractions')];
+    return {desiredExtractions: Store.get('desired-extractions'),
+            desiredUnextractions: Store.get('desired-unextractions'),
+            systemExtractions: Store.get('system-extractions')};
 }
 
 /**
@@ -381,7 +394,8 @@ function runExtractor() {
                                 sysExtractionsColor);
     }
 
-    return query;
+    return {systemExtractions: systemExtractions,
+            query: query};
 }
 
 /**

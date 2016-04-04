@@ -13,20 +13,23 @@ td {
     padding: 7px 0;
 }
 
-td.annotation {
+td.desired-extraction, td.desired-unextraction, td.system-extraction {
     padding-left: 5px;
     padding-right: 5px;
     word-break: break-all;
-    width: 246px;
     cursor: pointer;
 }
 
-div .training-set {
+td.desired-extraction, td.desired-unextraction {
+    width: 246px;
+}
+
+div .training-set, div .system-extractions {
     height: 100px;
     overflow-y: auto;
 }
 
-span .training-set {
+.training-set span, .system-extractions span {
     font-style: italic;
 }
 </style>

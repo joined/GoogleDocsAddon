@@ -47,18 +47,24 @@ function updateButtonStatus() {
  * @param {String} type            type of the annotation (extr/unextr)
  */
 function addAnnotationToTable(annotation, type) {
-    var table = type === 'desired-extraction' ? $(".desired-extractions table") : $(".desired-unextractions table");
+    if (type === 'desired-extraction') table = $(".desired-extractions table");
+    else if (type === 'desired-unextraction') table = $(".desired-unextractions table");
+    else table = $(".system-extractions table");
 
     // If it's the first annotation we add, delete the "empty" placeholder
     if (!$("tbody > tr", table).length) {
         $("span", table.parent()).hide();
     }
 
-    table.append(
-        "<tr data-start='" + annotation.startOffset + "' data-end='" + annotation.endOffset + "'>" +
-        "<td class='annotation'>" + annotation.text + "</td>" +
-        "<td class='button-cell'><a class='delete-annotation' href='#'><img src='https://openmerchantaccount.com/img2/close_1.png' width='24' height='22' alt='remove item' border='0'></a></td></tr>"
-    );
+    var newRow = "<tr data-start='" + annotation.startOffset + "' data-end='" + annotation.endOffset + "'>" +
+                 "<td class='" + type + "'>" + annotation.text + "</td>";
+
+    // Add delete button only for desired extractions and unextractions
+    if (type !== 'system-extraction') newRow += "<td class='button-cell'><a class='delete-annotation' href='#'><img src='https://openmerchantaccount.com/img2/close_1.png' width='24' height='22' alt='remove item' border='0'></a></td>";
+
+    newRow += "</tr>";
+
+    table.append(newRow);
 
     orderRows(table);
 
@@ -69,8 +75,9 @@ $(function(){
     // Load previously saved annotations
     google.script.run
         .withSuccessHandler(function (annotations) {
-            var desiredExtractions   = annotations[0],
-                desiredUnextractions = annotations[1];
+            var desiredExtractions   = annotations.desiredExtractions,
+                desiredUnextractions = annotations.desiredUnextractions,
+                systemExtractions    = annotations.systemExtractions;
 
             if (desiredExtractions !== null) {
                 for (var i = 0; i < desiredExtractions.length; i++) {
@@ -80,6 +87,11 @@ $(function(){
             if (desiredUnextractions !== null) {
                 for (var j = 0; j < desiredUnextractions.length; j++) {
                     addAnnotationToTable(desiredUnextractions[j], 'desired-unextraction');
+                }
+            }
+            if (systemExtractions !== null) {
+                for (var k = 0; k < systemExtractions.length; k++) {
+                    addAnnotationToTable(systemExtractions[k], 'system-extraction');
                 }
             }
         })
@@ -121,7 +133,14 @@ $(function(){
     $("button#start").click(function() {
         google.script.run
             .withFailureHandler(showError)
-            .withSuccessHandler(function(query){
+            .withSuccessHandler(function(resultObject){
+                var systemExtractions = resultObject.systemExtractions,
+                    query             = resultObject.query;
+
+                $.each(systemExtractions, function(index, systemExtraction) {
+                    addAnnotationToTable(systemExtraction, 'system-extraction');
+                });
+
                 $("div.query").append('Query: ' + JSON.stringify(query, null, 2));
             })
             .runExtractor();
@@ -137,6 +156,7 @@ $(function(){
                 });
 
                 $(".training-set span").show();
+                $(".system-extractions span").show();
                 $("div.error").empty();
                 $("div.query").empty();
                 $("#start").prop('disabled', true);
@@ -152,7 +172,7 @@ $(function(){
     });
 
     // Select annotation on click
-    $(document).on('click', 'td.annotation', function () {
+    $(document).on('click', 'td.annotation, td.system-extraction', function () {
         var $row        = $(this).parent(),
             startOffset = $row.data('start'),
             endOffset   = $row.data('end');
