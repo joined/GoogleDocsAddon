@@ -80,7 +80,7 @@ EntityExtractor.prototype = {
      * Generates the best separators set (S) for the current desired extractions and base string
      * @return {Object} array of optimal separators
      */
-    genBestSeparatorsBet: function() {
+    genBestSeparatorsSet: function() {
         var baseSeparatorSet = this.genBaseSeparatorSet();
 
         // Generate array of pure strings corresponding to desired extractions
@@ -95,7 +95,7 @@ EntityExtractor.prototype = {
             tokenizedString,
             intersection,
             bestSeparatorsSet,
-            bestSeparatorSetIntersectionCardinality = 0;
+            bestSeparatorSetIntersectionCardinality = -1;
 
         for (var i = 0; i < baseSeparatorSet.length; i++) {
             // S_i (actual separator set) is made of the first i elements of the base separator set
@@ -475,8 +475,6 @@ EntityExtractor.prototype = {
                               this.accuracy_after * c_after) / 3;
 
             classifiedTokenList.push(new TextRangeWithScore(tokenList[j], c_weighted));
-
-            token = '';
         }
 
         classifiedTokenList.sort(function (sxToken, dxToken) {
@@ -537,7 +535,7 @@ EntityExtractor.prototype = {
      * Run the algorithm
      */
     run: function() {
-        this.bestSeparatorsSet = this.genBestSeparatorsBet();
+        this.bestSeparatorsSet = this.genBestSeparatorsSet();
         this.n_tokens = this.calcNTokens();
         this.P        = this.desiredExtractions.slice();
         this.P_before = this.genBeforeSet(this.P, this.n_context);
