@@ -282,6 +282,9 @@ EntityExtractor.prototype = {
      * @return {Number} similarity score
      */
     jaccardSimilarityIndex: function (xString, yString) {
+        // If there aren't at least two characters in each string, the similarity is 0
+        if (xString.length <= 1 || yString.length <= 1) return 0;
+
         // If the score is already computed use it
         if (xString + '|' + yString in this.jaccardMatrix) {
             return this.jaccardMatrix[xString + '|' + yString];
