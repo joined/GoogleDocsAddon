@@ -143,6 +143,8 @@ $(function(){
                 });
 
                 $("div.query-text").text(query.text);
+                $("div.query-text").data('start', query.startOffset);
+                $("div.query-text").data('end', query.endOffset);
                 $("div.query").show();
                 $("div.system-extractions-outer").show();
             })
@@ -182,6 +184,14 @@ $(function(){
         var $row        = $(this).parent(),
             startOffset = $row.data('start'),
             endOffset   = $row.data('end');
+
+        google.script.run.selectAnnotation(startOffset, endOffset);
+    });
+
+    // Select annotation on click
+    $(document).on('click', 'div.query-text', function () {
+        var startOffset = $(this).data('start'),
+            endOffset   = $(this).data('end');
 
         google.script.run.selectAnnotation(startOffset, endOffset);
     });
