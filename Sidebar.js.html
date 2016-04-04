@@ -9,18 +9,17 @@ function showError(error) {
 }
 
 /**
- * Orders rows of training set table in ascending order
+ * Orders rows of desired extractions/unextractions table in ascending order by offset
  */
-function orderTrainingSetRows() {
-    var $table  = $('#training-set'),
-        $rows   = $('tbody > tr', $table);
+function orderRows(table) {
+    var $rows   = $('tbody > tr', table);
 
     $rows.sort(function(a, b) {
         return ($(a).data('start') > $(b).data('start')) ? 1 : 0;
     });
 
     $rows.each(function(index, row){
-      $table.append(row);                  // append rows after sort
+      table.append(row);                  // append rows after sort
     });
 }
 
@@ -30,14 +29,14 @@ function orderTrainingSetRows() {
  */
 function updateButtonStatus() {
     if ($("#start").prop('disabled') &&
-        $("#training-set > tbody > tr > td.desired-extraction").length >= 1 &&
-        $("#training-set > tbody > tr > td.desired-unextraction").length >= 1) {
+        $(".desired-extractions table > tbody > tr").length >= 1 &&
+        $(".desired-unextractions table > tbody > tr").length >= 1) {
         $("#start").prop('disabled', false);
     }
 
     if (!$("#start").prop('disabled') &&
-        !($("#training-set > tbody > tr > td.desired-extraction").length >= 1 &&
-        $("#training-set > tbody > tr > td.desired-unextraction").length >= 1)) {
+        !($(".desired-extractions table > tbody > tr").length >= 1 &&
+        $(".desired-unextractions table > tbody > tr").length >= 1)) {
         $("#start").prop('disabled', true);
     }
 }
@@ -48,19 +47,20 @@ function updateButtonStatus() {
  * @param {String} type            type of the annotation (extr/unextr)
  */
 function addAnnotationToTable(annotation, type) {
+    var table = type === 'desired-extraction' ? $(".desired-extractions table") : $(".desired-unextractions table");
+
     // If it's the first annotation we add, delete the "empty" placeholder
-    if (!$("table#training-set > tbody > tr").length) {
-        $("span.empty-training-set").hide();
+    if (!$("tbody > tr", table).length) {
+        $("span", table.parent()).hide();
     }
 
-    $("#training-set").append(
+    table.append(
         "<tr data-start='" + annotation.startOffset + "'>" +
-        "<td class='annotation-type " + type + "'></td>" +
         "<td class='annotation'>" + annotation.text + "</td>" +
-        "<td class='button-cell'><a class='delete-annotation' href='#'><img src='https://openmerchantaccount.com/img2/close_1.png' width='24' height='22' alt='remove item' border='0'></a></td>"
+        "<td class='button-cell'><a class='delete-annotation' href='#'><img src='https://openmerchantaccount.com/img2/close_1.png' width='24' height='22' alt='remove item' border='0'></a></td></tr>"
     );
 
-    orderTrainingSetRows();
+    orderRows(table);
 
     updateButtonStatus();
 }
@@ -132,11 +132,11 @@ $(function(){
         google.script.run
             .withFailureHandler(showError)
             .withSuccessHandler(function(){
-                $("table#training-set > tbody > tr").each(function() {
+                $(".training-set table > tbody > tr").each(function() {
                     $(this).remove();
                 });
 
-                $("span.empty-training-set").show();
+                $(".training-set span").show();
                 $("div.error").empty();
                 $("div.query").empty();
             })
@@ -158,14 +158,13 @@ $(function(){
 
         google.script.run
             .withSuccessHandler(function() {
+                // If this was the last row to be removed, show the placeholder
+                if (!$row.siblings().size()) $("span", $row.parent().parent().parent()).show();
+
                 $row.remove();
 
                 updateButtonStatus();
 
-                // If there aren't any annotations show the "empty" placeholder
-                if (!$("table#training-set > tbody > tr").length) {
-                    $("span.empty-training-set").show();
-                }
             })
             .withFailureHandler(showError)
             .deleteAnnotation(startOffset);
