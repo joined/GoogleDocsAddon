@@ -453,15 +453,19 @@ EntityExtractor.prototype = {
                 c_before, c_after;
 
             // If there's no text before or after the current token,
-            // don't use it
-            if (textRangeBefore !== null) {
+            // don't use it, and the same if there's no P_before or N_before set
+            if (textRangeBefore !== null &&
+                this.P_before.length &&
+                this.N_before.length) {
                 c_before = this.deltaM(textRangeBefore.text, this.P_before, this.N_before);
             } else {
                 c_before = 0;
                 a_before = 0;
             }
 
-            if (textRangeAfter !== null) {
+            if (textRangeAfter !== null &&
+                this.P_after.length &&
+                this.N_after.length) {
                 c_after  = this.deltaM(textRangeAfter.text, this.P_after, this.N_after);
             } else {
                 c_after = 0;
