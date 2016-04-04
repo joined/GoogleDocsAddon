@@ -42,14 +42,22 @@
             <button id="reset">Reset</button>
             <button class="create" id="export">Export</button>
         </div>
-        <div class="block">
+        <div class="block system-extractions-outer">
             <h3>System extractions:</h3>
             <div class="system-extractions">
                 <span class="empty-system-extractions gray">Empty</span>
                 <table></table>
             </div>
         </div>
-        <div class="block query"></div>
+        <div class="block query">
+            <h3>Query</h3>
+            <div class="query-text"></div>
+            <div class="query-buttons">
+                <button class="query-extract">Extract</button>
+                <button class="query-dont-extract">Don't Extract</button>
+                <button class="query-edit">Edit</button>
+            </div>
+        </div>
     </div>
     <?!= include('Sidebar.js.html'); ?>
 </body>

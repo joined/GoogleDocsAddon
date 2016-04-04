@@ -27,7 +27,7 @@ function orderRows(table) {
  * Updates "Start" button status, enabling it only if there is at least one
  * desired extraction and one desired unextractions and the other way around
  */
-function updateButtonStatus() {
+function updateStartButtonStatus() {
     if ($("#start").prop('disabled') &&
         $(".desired-extractions table > tbody > tr").length >= 1 &&
         $(".desired-unextractions table > tbody > tr").length >= 1) {
@@ -68,7 +68,7 @@ function addAnnotationToTable(annotation, type) {
 
     orderRows(table);
 
-    updateButtonStatus();
+    updateStartButtonStatus();
 }
 
 $(function(){
@@ -90,6 +90,7 @@ $(function(){
                 }
             }
             if (systemExtractions !== null) {
+                $("div.system-extractions-outer").show();
                 for (var k = 0; k < systemExtractions.length; k++) {
                     addAnnotationToTable(systemExtractions[k], 'system-extraction');
                 }
@@ -141,7 +142,9 @@ $(function(){
                     addAnnotationToTable(systemExtraction, 'system-extraction');
                 });
 
-                $("div.query").append('Query: ' + JSON.stringify(query, null, 2));
+                $("div.query-text").text(query.text);
+                $("div.query").show();
+                $("div.system-extractions-outer").show();
             })
             .runExtractor();
     });
@@ -151,14 +154,17 @@ $(function(){
         google.script.run
             .withFailureHandler(showError)
             .withSuccessHandler(function(){
-                $(".training-set table > tbody > tr").each(function() {
+                $(".training-set table > tbody > tr, .system-extractions table > tbody > tr").each(function() {
                     $(this).remove();
                 });
 
                 $(".training-set span").show();
                 $(".system-extractions span").show();
+                $("div.system-extractions-outer").hide();
+                $("div.query").hide();
                 $("div.error").empty();
-                $("div.query").empty();
+                $("div.query-text").empty();
+                $("div.query").hide();
                 $("#start").prop('disabled', true);
             })
             .resetEverything();
@@ -193,7 +199,7 @@ $(function(){
 
                 $row.remove();
 
-                updateButtonStatus();
+                updateStartButtonStatus();
 
             })
             .withFailureHandler(showError)

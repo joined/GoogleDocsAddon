@@ -20,6 +20,10 @@ td.desired-extraction, td.desired-unextraction, td.system-extraction {
     cursor: pointer;
 }
 
+tr:last-child > td, tr:last-child > th {
+    border-bottom: 1px solid #ebebeb !important;
+}
+
 td.desired-extraction, td.desired-unextraction {
     width: 246px;
 }
@@ -27,9 +31,24 @@ td.desired-extraction, td.desired-unextraction {
 div .training-set, div .system-extractions {
     height: 100px;
     overflow-y: auto;
+    border: 1px solid #c9c9c9;
+    padding: 5px;
+}
+
+.training-set table, .system-extractions table {
+    margin: -5px;
 }
 
 .training-set span, .system-extractions span {
     font-style: italic;
+}
+
+div.system-extractions-outer, div.query {
+    display: none;
+}
+
+div.query-text {
+    padding: 5px;
+    margin-bottom: 8px;
 }
 </style>
