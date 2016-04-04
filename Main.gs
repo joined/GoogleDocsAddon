@@ -418,3 +418,16 @@ function exportExtractions() {
 
     DocumentApp.getUi().showModalDialog(html, 'System extractions export');
 }
+
+/**
+ * Selects an annotation in the text, given start and end offsets
+ * @param  {Number} startOffset annotation start offset
+ * @param  {Number} endOffset   annotation end offset
+ */
+function selectAnnotation(startOffset, endOffset) {
+    var doc = DocumentApp.getActiveDocument();
+    var rangeBuilder = doc.newRange();
+    rangeBuilder.addElement(doc.getBody().editAsText(), startOffset, endOffset);
+
+    doc.setSelection(rangeBuilder.build());
+}
