@@ -1,6 +1,33 @@
 <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
 <script>
 /**
+ * Run the algorithm
+ */
+function run() {
+    google.script.run
+    .withFailureHandler(showError)
+    .withSuccessHandler(function(resultObject){
+        var systemExtractions = resultObject.systemExtractions,
+            query             = resultObject.query;
+
+        $(".system-extractions table > tbody > tr").each(function() {
+            $(this).remove();
+        });
+
+        $.each(systemExtractions, function(index, systemExtraction) {
+            addAnnotationToTable(systemExtraction, 'system-extraction');
+        });
+
+        $("div.query-text").text(query.text);
+        $("div.query-text").data('start', query.startOffset);
+        $("div.query-text").data('end', query.endOffset);
+        $("div.query").show();
+        $("div.system-extractions-outer").show();
+    })
+    .runExtractor();
+}
+
+/**
  * Show an error message
  * @param  {String} error   the error text
  */
@@ -132,23 +159,7 @@ $(function(){
 
     // Run the extractor
     $("button#start").click(function() {
-        google.script.run
-            .withFailureHandler(showError)
-            .withSuccessHandler(function(resultObject){
-                var systemExtractions = resultObject.systemExtractions,
-                    query             = resultObject.query;
-
-                $.each(systemExtractions, function(index, systemExtraction) {
-                    addAnnotationToTable(systemExtraction, 'system-extraction');
-                });
-
-                $("div.query-text").text(query.text);
-                $("div.query-text").data('start', query.startOffset);
-                $("div.query-text").data('end', query.endOffset);
-                $("div.query").show();
-                $("div.system-extractions-outer").show();
-            })
-            .runExtractor();
+        run();
     });
 
     // Reset addon status
@@ -180,7 +191,7 @@ $(function(){
     });
 
     // Select annotation on click
-    $(document).on('click', 'td.annotation, td.system-extraction', function () {
+    $(document).on('click', 'td.desired-extraction, td.desired-unextraction, td.system-extraction', function () {
         var $row        = $(this).parent(),
             startOffset = $row.data('start'),
             endOffset   = $row.data('end');
@@ -194,6 +205,31 @@ $(function(){
             endOffset   = $(this).data('end');
 
         google.script.run.selectAnnotation(startOffset, endOffset);
+    });
+
+    // Binary answer to the query
+    $(document).on('click', '.query-buttons .binary-answer', function () {
+        var query = $("div.query-text", $(this).parent().parent());
+
+        var newAnnotation = {startOffset: query.data('start'),
+                             endOffset:   query.data('end'),
+                             text:        query.text()};
+
+        var type;
+
+        if ($(this).hasClass('query-extract')) type = 'desired-extraction';
+        else type = 'desired-unextraction';
+
+        // Add the new annotation to the server-side store, then add it to
+        // the corresponding table
+        google.script.run
+            .withSuccessHandler(function() {
+                addAnnotationToTable(newAnnotation, type);
+
+                // Run the algorithm again
+                run();
+            })
+            .addNewAnnotation(newAnnotation, type);
     });
 
     // Annotation deletion

@@ -162,14 +162,11 @@ function getSelectionAsTextRange() {
 }
 
 /**
- * Saves current selection as desired extraction/unextraction, returning
- * the new text range
- * @param {String} type   type of annotation, can be 'desired-extraction' or 'desired-unxtraction'
- * @return {TextRange}    the text range corresponding to the current selection
+ * Adds a new annotation to the annotation store
+ * @param {TextRange} annotation   annotation to save
+ * @param {String} type            type of the annotation (des. extr / des. unextr)
  */
-function addSelectionAsAnnotation(type) {
-    var newAnnotation = getSelectionAsTextRange();
-
+function addNewAnnotation(newAnnotation, type) {
     if (!isAnnotationAllowed(newAnnotation)) {
         throw "Annotation overlapping, not allowed";
     }
@@ -195,9 +192,22 @@ function addSelectionAsAnnotation(type) {
                             newAnnotation.endOffset,
                             highlightColor);
 
-    return newAnnotation;
+    return;
 }
 
+/**
+ * Saves current selection as desired extraction/unextraction, returning
+ * the new text range
+ * @param {String} type   type of annotation, can be 'desired-extraction' or 'desired-unxtraction'
+ * @return {TextRange}    the text range corresponding to the current selection
+ */
+function addSelectionAsAnnotation(type) {
+    var newAnnotation = getSelectionAsTextRange();
+
+    addNewAnnotation(newAnnotation, type);
+
+    return newAnnotation;
+}
 
 /**
  * Opens a modal to change the highlight colors
@@ -292,7 +302,7 @@ function reDrawHighlights() {
         body
             .editAsText()
             .setBackgroundColor(systemExtractions[k].startOffset,
-                                systemExtractions[k].endOffset,
+                                systemExtractions[k].endOffset - 1,
                                 systemExtractionsColor);
     }
 }
@@ -386,13 +396,8 @@ function runExtractor() {
     // Highlight the system extractions. Needs to be fixed to show
     // conflicts between desired extractions / unextractions and
     // system extractions
-    for (var i = 0; i < systemExtractions.length; i++) {
-        body
-            .editAsText()
-            .setBackgroundColor(systemExtractions[i].startOffset,
-                                systemExtractions[i].endOffset - 1,
-                                sysExtractionsColor);
-    }
+    resetBackground();
+    reDrawHighlights();
 
     return {systemExtractions: systemExtractions,
             query: query};
