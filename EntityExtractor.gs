@@ -246,14 +246,14 @@ EntityExtractor.prototype = {
 
                 // If the current character is the last of the textRange.text, push the current token to the list
                 if (i === textRange.text.length - 1) {
-                    tokenEndOffset = textRange.startOffset + i;
+                    tokenEndOffset = textRange.startOffset + i - 1;
 
                     tokenList.push(new TextRange(tokenStartOffset, tokenEndOffset, token));
                 }
             // If the current character is a separator and 'token' is not the empty textRange.text,
             // add 'token' to the list
             } else if (token.length) {
-                tokenEndOffset = textRange.startOffset + i;
+                tokenEndOffset = textRange.startOffset + i - 1;
 
                 tokenList.push(new TextRange(tokenStartOffset, tokenEndOffset, token));
 
