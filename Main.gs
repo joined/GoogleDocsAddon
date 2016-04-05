@@ -427,8 +427,6 @@ function runExtractor() {
 
     Store.set('extractor-has-run', 'true');
 
-    Store.set('system-extractions-highlight-status', 'on');
-
     // Update highlights
     reDrawHighlights(extractionResult);
 
