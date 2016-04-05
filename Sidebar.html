@@ -9,22 +9,11 @@
 
 <body>
     <div class="frame">
-        <div class="block">
-            <h3>Add selection as:</h3>
-            <form>
-                <div class="block" id="button-bar">
-                    <button data-type="desired-extraction" class="add-selection">Desired extraction</button>
-                    <button data-type="desired-unextraction" class="add-selection">Desired unextraction</button>
-                </div>
-            </form>
-        </div>
         <div class="block error"></div>
         <div class="block">
-            <input type="checkbox" checked id="use-highlight">
-            <label for="use-highlight">Highlight annotations</label>
-        </div>
-        <div class="block">
             <h3>Desired extractions:</h3>
+            <input type="checkbox" checked data-type="desired-extractions" class="highlight-status">
+            <button data-type="desired-extraction" class="add-selection">Add</button>
             <div class="training-set desired-extractions">
                 <span class="empty-desired-extractions gray">Empty</span>
                 <table></table>
@@ -32,6 +21,8 @@
         </div>
         <div class="block">
             <h3>Desired unextractions:</h3>
+            <input type="checkbox" checked data-type="desired-unextractions" class="highlight-status">
+            <button data-type="desired-unextraction" class="add-selection">Add</button>
             <div class="training-set desired-unextractions">
                 <span class="empty-desired-unextractions gray">Empty</span>
                 <table></table>
@@ -44,6 +35,7 @@
         </div>
         <div class="block system-extractions-outer">
             <h3>System extractions:</h3>
+            <input type="checkbox" checked data-type="system-extractions" class="highlight-status">
             <div class="system-extractions">
                 <span class="empty-system-extractions gray">Empty</span>
                 <table></table>

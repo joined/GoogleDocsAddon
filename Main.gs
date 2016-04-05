@@ -7,15 +7,13 @@ function onOpen() {
         .createAddonMenu()
         .addItem('Start', 'showSidebar')
         .addToUi();
-
-    // Redraw highlights
-    reDrawHighlights();
 }
 
 /**
  * Trigger that is fired when the addon is installed
  */
 function onInstall() {
+    saveDefaults();
     onOpen(e);
 }
 
@@ -46,14 +44,20 @@ function showSidebar() {
 }
 
 /**
- * Save to the Store the default highlight colors
+ * Save to the Store the constants
  */
-function saveDefaultColors() {
+function saveDefaults() {
     Store.set('desired-extractions-color', '#3b8e00');
     Store.set('desired-unextractions-color', '#b0281a');
     Store.set('system-extractions-color', '#4c8ffb');
     Store.set('query-color', '#ff00ff');
     Store.set('default-color', '#ffffff');
+
+    Store.set('extractor-has-run', 'false');
+
+    Store.set('desired-extractions-highlight-status', 'on');
+    Store.set('desired-unextractions-highlight-status', 'on');
+    Store.set('system-extractions-highlight-status', 'on');
 }
 
 /**
@@ -228,16 +232,16 @@ function resetBackground() {
  * Draws the highlights corresponding to the saved annotations
  */
 function reDrawHighlights(extractionResult) {
-    var savedAnnotations = getAnnotations(),
-        desiredExtractions   = savedAnnotations.desiredExtractions,
-        desiredUnextractions = savedAnnotations.desiredUnextractions,
+    var desiredExtractions   = Store.get('desired-extractions'),
+        desiredUnextractions = Store.get('desired-unextractions'),
         desiredExtractionsColor   = Store.get('desired-extractions-color'),
         desiredUnextractionsColor = Store.get('desired-unextractions-color'),
         systemExtractionsColor    = Store.get('system-extractions-color'),
         queryColor                = Store.get('query-color'),
         desiredExtractionsHighlightStatus   = Store.get('desired-extractions-highlight-status'),
         desiredUnextractionsHighlightStatus = Store.get('desired-unextractions-highlight-status'),
-        systemExtractionsHighlightStatus    = Store.get('system-extractions-highlight-status');
+        systemExtractionsHighlightStatus    = Store.get('system-extractions-highlight-status'),
+        extractionHasRun                    = Store.get('extractor-has-run');
 
     resetBackground();
 
@@ -267,21 +271,16 @@ function reDrawHighlights(extractionResult) {
         }
     }
 
-    // If system extractions are not given
+    if (extractionHasRun !== 'true') return;
+
     if (typeof extractionResult === 'undefined') {
-        // And we can generate them, do it
-        if (desiredExtractions !== null && desiredUnextractions !== null &&
-            desiredExtractions.length && desiredUnextractions.length) {
-            extractionResult = getExtractionResult();
-        // If we can't, stop here
-        } else {
-            return;
-        }
+        extractionResult = getExtractionResult();
     }
 
-    if (systemExtractionsHighlightStatus === 'on') {
-        var systemExtractions = extractionResult.systemExtractions;
+    var systemExtractions = extractionResult.systemExtractions,
+        query             = extractionResult.query;
 
+    if (systemExtractionsHighlightStatus === 'on') {
         // Highlight system extractions
         for (var k = 0; k < systemExtractions.length; k++) {
             body
@@ -293,7 +292,6 @@ function reDrawHighlights(extractionResult) {
     }
 
     // Highlight query
-    var query             = extractionResult.query;
     body
         .editAsText()
         .setBackgroundColor(query.startOffset,
@@ -305,12 +303,29 @@ function reDrawHighlights(extractionResult) {
  * Gets desired extractions/unextractions
  * @return {Object} array of desired extractions and unextractions
  */
-function getAnnotations() {
+function getSavedStatus() {
     var desiredExtractions   = Store.get('desired-extractions'),
-        desiredUnextractions = Store.get('desired-unextractions');
+        desiredUnextractions = Store.get('desired-unextractions'),
+        systemExtractions    = null,
+        query                = null,
+        desiredExtractionsHighlightStatus   = Store.get('desired-extractions-highlight-status'),
+        desiredUnextractionsHighlightStatus = Store.get('desired-unextractions-highlight-status'),
+        systemExtractionsHighlightStatus    = Store.get('system-extractions-highlight-status');
+
+    if (Store.get('extractor-has-run') === 'true') {
+        var resultsObject        = getExtractionResult();
+
+        systemExtractions = resultsObject.systemExtractions;
+        query = resultsObject.query;
+    }
 
     return {desiredExtractions: desiredExtractions,
-            desiredUnextractions: desiredUnextractions};
+            desiredUnextractions: desiredUnextractions,
+            systemExtractions: systemExtractions,
+            query: query,
+            desiredExtractionsHighlightStatus: desiredExtractionsHighlightStatus,
+            desiredUnextractionsHighlightStatus: desiredUnextractionsHighlightStatus,
+            systemExtractionsHighlightStatus: systemExtractionsHighlightStatus};
 }
 
 /**
@@ -392,7 +407,6 @@ function getExtractionResult() {
         var annotations = desiredExtractions.concat(desiredUnextractions);
         for (var i = 0; i < annotations.length; i++) {
             if (TextRange.areOverlapping(systemExtraction, annotations[i])) {
-                Logger.log("overlapping, skipping this one: " + JSON.stringify(systemExtraction));
                 return false;
             }
         }
@@ -411,6 +425,10 @@ function getExtractionResult() {
 function runExtractor() {
     var extractionResult = getExtractionResult();
 
+    Store.set('extractor-has-run', 'true');
+
+    Store.set('system-extractions-highlight-status', 'on');
+
     // Update highlights
     reDrawHighlights(extractionResult);
 
@@ -423,11 +441,7 @@ function runExtractor() {
 function resetEverything() {
     Store.reset();
     resetBackground();
-    saveDefaultColors();
-
-    Store.set('desired-extractions-highlight-status', 'on');
-    Store.set('desired-unextractions-highlight-status', 'on');
-    Store.set('system-extractions-highlight-status', 'on');
+    saveDefaults();
 
     return;
 }
@@ -476,4 +490,18 @@ function selectAnnotation(startOffset, endOffset) {
     rangeBuilder.addElement(doc.getBody().editAsText(), startOffset, endOffset);
 
     doc.setSelection(rangeBuilder.build());
+}
+
+/**
+ * Change highlight status of one type of annotations (des. extr / des. unextr / sys. extr.)
+ * @param {String} type   type of the annotation to change the highlight status of
+ * @param {String} status new status
+ */
+function setHighlightStatus(type, status) {
+    if (type === 'desired-extractions') Store.set('desired-extractions-highlight-status', status);
+    else if (type === 'desired-unextractions') Store.set('desired-unextractions-highlight-status', status);
+    else if (type === 'system-extractions') Store.set('system-extractions-highlight-status', status);
+    else throw "Type of annotation not recognized";
+
+    reDrawHighlights();
 }

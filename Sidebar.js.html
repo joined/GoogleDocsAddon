@@ -20,9 +20,14 @@ function restoreSavedStatus() {
     // Load previously saved stuff
     google.script.run
         .withFailureHandler(showError)
-        .withSuccessHandler(function (savedAnnotations) {
-            var desiredExtractions   = savedAnnotations.desiredExtractions,
-                desiredUnextractions = savedAnnotations.desiredUnextractions;
+        .withSuccessHandler(function (savedStatus) {
+            var desiredExtractions   = savedStatus.desiredExtractions,
+                desiredUnextractions = savedStatus.desiredUnextractions,
+                systemExtractions    = savedStatus.systemExtractions,
+                query                = savedStatus.query,
+                desiredExtractionsHighlightStatus   = savedStatus.desiredExtractionsHighlightStatus;
+                desiredUnextractionsHighlightStatus = savedStatus.desiredUnextractionsHighlightStatus;
+                systemExtractionsHighlightStatus    = savedStatus.systemExtractionsHighlightStatus;
 
             if (desiredExtractions !== null && desiredExtractions.length) {
                 for (var i = 0; i < desiredExtractions.length; i++) {
@@ -35,24 +40,33 @@ function restoreSavedStatus() {
                 }
             }
 
-            if (desiredExtractions !== null && desiredExtractions.length &&
-                desiredUnextractions !== null && desiredUnextractions.length) {
-                google.script.run
-                    .withSuccessHandler(function(extractionResults) {
-                        var systemExtractions = extractionResults.systemExtractions,
-                            query             = extractionResults.query;
+            updateStartButtonStatus();
 
-                        for (var i = 0; i < systemExtractions.length; i++) {
-                            addAnnotationToTable(systemExtractions[i], 'system-extraction');
-                        }
+            if (systemExtractions !== null && systemExtractions.length) {
+                // Add new system extractions
+                $.each(systemExtractions, function(index, systemExtraction) {
+                    addAnnotationToTable(systemExtraction, 'system-extraction');
+                });
 
-                        showQuery(query);
-                    })
-                    .withFailureHandler(showError)
-                    .getExtractionResult();
+                // Disable add annotation buttons when waiting query answer
+                $("button.add-selection").prop('disabled', true);
+                showQuery(query);
+                $("div.system-extractions-outer").show();
+            }
+
+            if (desiredExtractionsHighlightStatus === 'off') {
+                $("input.highlight-status[data-type='desired-extractions']").prop('checked', false);
+            }
+
+            if (desiredUnextractionsHighlightStatus === 'off') {
+                $("input.highlight-status[data-type='desired-unextractions']").prop('checked', false);
+            }
+
+            if (systemExtractionsHighlightStatus === 'off') {
+                $("input.highlight-status[data-type='system-extractions']").prop('checked', false);
             }
         })
-        .getAnnotations();
+        .getSavedStatus();
 }
 
 /**
@@ -198,12 +212,11 @@ $(function(){
     });
 
     // Highlight enabling / disabling
-    $("#use-highlight").change(function () {
-        if (!this.checked) {
-            google.script.run.resetBackground();
-        } else {
-            google.script.run.reDrawHighlights();
-        }
+    $(".highlight-status").change(function () {
+        var newStatus = $(this).prop('checked') ? 'on' : 'off';
+
+        google.script.run
+            .setHighlightStatus($(this).data('type'), newStatus);
     });
 
     // Run the extractor
@@ -270,11 +283,15 @@ $(function(){
 
     // Binary answer to the query
     $(document).on('click', '.query-edit', function () {
-        // Disable extrac/unextract buttons
-        $(".query-buttons button").prop("disabled", true);
+        google.script.run
+            .withSuccessHandler(function() {
+                // Disable extrac/unextract buttons
+                $(".query-buttons button").prop("disabled", true);
 
-        // Enable add extraction / unextraction buttons and start button
-        $("button.add-selection, button#start").prop("disabled", false);
+                // Enable add extraction / unextraction buttons and start button
+                $("button.add-selection, button#start").prop("disabled", false);
+            })
+            .setHighlightStatus('system-extractions', 'off');
     });
 
     // Annotation deletion
