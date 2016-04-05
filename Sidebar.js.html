@@ -192,13 +192,6 @@ $(function(){
         return false;
     });
 
-    // Open highlight colors editor modal
-    $('#edit-colors').click(function () {
-        google.script.run.showColorsModal();
-
-        return false;
-    });
-
     // Highlight enabling / disabling
     $("#use-highlight").change(function () {
         if (!this.checked) {

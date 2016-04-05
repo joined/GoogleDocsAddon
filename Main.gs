@@ -210,46 +210,6 @@ function addSelectionAsAnnotation(type) {
 }
 
 /**
- * Opens a modal to change the highlight colors
- */
-function showColorsModal() {
-    var html = HtmlService
-        .createTemplateFromFile('EditColorModal')
-        .evaluate()
-        .setSandboxMode(HtmlService.SandboxMode.IFRAME)
-        .setWidth(400)
-        .setHeight(170);
-
-    DocumentApp
-        .getUi()
-        .showModalDialog(html, 'Edit Highlight Colors');
-}
-
-/**
- * Saves to the store a new list of highlight colors
- * @param  {Object} colorsList   array of colors encoded as strings
- */
-function saveNewHighlightColors(colorsList) {
-    Store.set('desired-extractions-color',   colorsList[0]);
-    Store.set('desired-unextractions-color', colorsList[1]);
-    Store.set('system-extractions-color',    colorsList[2]);
-
-    reDrawHighlights();
-}
-
-/**
- * Gets current stored highlight colors
- * @return {Object} array of colors encoded as strings
- */
-function getHighlightColors() {
-    var desiredExtractionsColor   = Store.get('desired-extractions-color');
-        desiredUnextractionsColor = Store.get('desired-unextractions-color');
-        sysExtractionsColor       = Store.get('system-extractions-color');
-
-    return [desiredExtractionsColor, desiredUnextractionsColor, sysExtractionsColor];
-}
-
-/**
  * Deletes any highlight in the document setting its background
  * to the default color
  */
