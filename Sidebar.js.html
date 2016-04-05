@@ -9,7 +9,6 @@ function showQuery(query) {
     $("div.query-text").text(query.text);
     $("div.query-text").data('start', query.startOffset);
     $("div.query-text").data('end', query.endOffset);
-    $("div.query").show();
     $("button#start").prop('disabled', true);
     $(".query-buttons button").prop("disabled", false);
 }
@@ -20,33 +19,40 @@ function showQuery(query) {
 function restoreSavedStatus() {
     // Load previously saved stuff
     google.script.run
-        .withSuccessHandler(function (savedStuff) {
-            var desiredExtractions   = savedStuff.desiredExtractions,
-                desiredUnextractions = savedStuff.desiredUnextractions,
-                systemExtractions    = savedStuff.systemExtractions,
-                query                = savedStuff.query;
+        .withFailureHandler(showError)
+        .withSuccessHandler(function (savedAnnotations) {
+            var desiredExtractions   = savedAnnotations.desiredExtractions,
+                desiredUnextractions = savedAnnotations.desiredUnextractions;
 
-            if (desiredExtractions !== null) {
+            if (desiredExtractions !== null && desiredExtractions.length) {
                 for (var i = 0; i < desiredExtractions.length; i++) {
                     addAnnotationToTable(desiredExtractions[i], 'desired-extraction');
                 }
             }
-            if (desiredUnextractions !== null) {
+            if (desiredUnextractions !== null && desiredUnextractions.length) {
                 for (var j = 0; j < desiredUnextractions.length; j++) {
                     addAnnotationToTable(desiredUnextractions[j], 'desired-unextraction');
                 }
             }
-            if (systemExtractions !== null) {
-                $("div.system-extractions-outer").show();
-                for (var k = 0; k < systemExtractions.length; k++) {
-                    addAnnotationToTable(systemExtractions[k], 'system-extraction');
-                }
-            }
-            if (query !== null) {
-                showQuery(query);
+
+            if (desiredExtractions !== null && desiredExtractions.length &&
+                desiredUnextractions !== null && desiredUnextractions.length) {
+                google.script.run
+                    .withSuccessHandler(function(extractionResults) {
+                        var systemExtractions = extractionResults.systemExtractions,
+                            query             = extractionResults.query;
+
+                        for (var i = 0; i < systemExtractions.length; i++) {
+                            addAnnotationToTable(systemExtractions[i], 'system-extraction');
+                        }
+
+                        showQuery(query);
+                    })
+                    .withFailureHandler(showError)
+                    .getExtractionResult();
             }
         })
-        .getSavedStuff();
+        .getAnnotations();
 }
 
 /**
@@ -63,10 +69,9 @@ function resetStatus() {
             $(".training-set span").show();
             $(".system-extractions span").show();
             $("button.add-selection").prop('disabled', false);
-            $("div.system-extractions-outer").hide();
-            $("div.query").hide();
             $("div.error").empty();
             $("div.query-text").empty();
+            $(".query-buttons button").prop('disabled', true);
             $("#start").prop('disabled', true);
         })
         .resetEverything();
@@ -95,6 +100,7 @@ function run() {
             // Disable add annotation buttons when waiting query answer
             $("button.add-selection").prop('disabled', true);
             showQuery(query);
+            console.log(JSON.stringify(query, null ,4));
             $("div.system-extractions-outer").show();
         })
         .runExtractor();
@@ -261,6 +267,15 @@ $(function(){
                 run();
             })
             .addNewAnnotation(newAnnotation, type);
+    });
+
+    // Binary answer to the query
+    $(document).on('click', '.query-edit', function () {
+        // Disable extrac/unextract buttons
+        $(".query-buttons button").prop("disabled", true);
+
+        // Enable add extraction / unextraction buttons and start button
+        $("button.add-selection, button#start").prop("disabled", false);
     });
 
     // Annotation deletion

@@ -8,11 +8,8 @@ function onOpen() {
         .addItem('Start', 'showSidebar')
         .addToUi();
 
-    // Delete everything that was saved in the Store, remove any higlightings
-    // and save the default highlight colors in the Store
-    Store.reset();
-    resetBackground();
-    saveDefaultColors();
+    // Redraw highlights
+    reDrawHighlights();
 }
 
 /**
@@ -55,6 +52,7 @@ function saveDefaultColors() {
     Store.set('desired-extractions-color', '#3b8e00');
     Store.set('desired-unextractions-color', '#b0281a');
     Store.set('system-extractions-color', '#4c8ffb');
+    Store.set('query-color', '#ff00ff');
     Store.set('default-color', '#ffffff');
 }
 
@@ -229,66 +227,90 @@ function resetBackground() {
 /**
  * Draws the highlights corresponding to the saved annotations
  */
-function reDrawHighlights() {
-    var savedAnnotations = getSavedStuff(),
+function reDrawHighlights(extractionResult) {
+    var savedAnnotations = getAnnotations(),
         desiredExtractions   = savedAnnotations.desiredExtractions,
         desiredUnextractions = savedAnnotations.desiredUnextractions,
-        systemExtractions    = savedAnnotations.systemExtractions,
         desiredExtractionsColor   = Store.get('desired-extractions-color'),
-        desiredUnextractionsColor = Store.get('desired-unextractions-color');
-        systemExtractionsColor = Store.get('system-extractions-color');
+        desiredUnextractionsColor = Store.get('desired-unextractions-color'),
+        systemExtractionsColor    = Store.get('system-extractions-color'),
+        queryColor                = Store.get('query-color'),
+        desiredExtractionsHighlightStatus   = Store.get('desired-extractions-highlight-status'),
+        desiredUnextractionsHighlightStatus = Store.get('desired-unextractions-highlight-status'),
+        systemExtractionsHighlightStatus    = Store.get('system-extractions-highlight-status');
+
+    resetBackground();
 
     var body = DocumentApp
             .getActiveDocument()
             .getBody();
 
-    for (var i = 0; i < desiredExtractions.length; i++) {
-        body
-            .editAsText()
-            .setBackgroundColor(desiredExtractions[i].startOffset,
-                                desiredExtractions[i].endOffset,
-                                desiredExtractionsColor);
+    // Highlight desired extractions
+    if (desiredExtractions !== null && desiredExtractions.length && desiredExtractionsHighlightStatus === 'on') {
+        for (var i = 0; i < desiredExtractions.length; i++) {
+            body
+                .editAsText()
+                .setBackgroundColor(desiredExtractions[i].startOffset,
+                                    desiredExtractions[i].endOffset,
+                                    desiredExtractionsColor);
+        }
     }
 
-    for (var j = 0; j < desiredUnextractions.length; j++) {
-        body
-            .editAsText()
-            .setBackgroundColor(desiredUnextractions[j].startOffset,
-                                desiredUnextractions[j].endOffset,
-                                desiredUnextractionsColor);
+    // Highlight desired unextractions
+    if (desiredUnextractions !== null && desiredUnextractions.length && desiredUnextractionsHighlightStatus === 'on') {
+        for (var j = 0; j < desiredUnextractions.length; j++) {
+            body
+                .editAsText()
+                .setBackgroundColor(desiredUnextractions[j].startOffset,
+                                    desiredUnextractions[j].endOffset,
+                                    desiredUnextractionsColor);
+        }
     }
 
-    for (var k = 0; k < systemExtractions.length; k++) {
-        body
-            .editAsText()
-            .setBackgroundColor(systemExtractions[k].startOffset,
-                                systemExtractions[k].endOffset - 1,
-                                systemExtractionsColor);
+    // If system extractions are not given
+    if (typeof extractionResult === 'undefined') {
+        // And we can generate them, do it
+        if (desiredExtractions !== null && desiredUnextractions !== null &&
+            desiredExtractions.length && desiredUnextractions.length) {
+            extractionResult = getExtractionResult();
+        // If we can't, stop here
+        } else {
+            return;
+        }
     }
+
+    if (systemExtractionsHighlightStatus === 'on') {
+        var systemExtractions = extractionResult.systemExtractions;
+
+        // Highlight system extractions
+        for (var k = 0; k < systemExtractions.length; k++) {
+            body
+                .editAsText()
+                .setBackgroundColor(systemExtractions[k].startOffset,
+                                    systemExtractions[k].endOffset - 1,
+                                    systemExtractionsColor);
+        }
+    }
+
+    // Highlight query
+    var query             = extractionResult.query;
+    body
+        .editAsText()
+        .setBackgroundColor(query.startOffset,
+                            query.endOffset - 1,
+                            queryColor);
 }
 
 /**
- * Gets desired extractions/unextractions and system extractions saved in the store, and the query
+ * Gets desired extractions/unextractions
  * @return {Object} array of desired extractions and unextractions
  */
-function getSavedStuff() {
-    var systemExtractionsCompact = Store.get('system-extractions-compact');
+function getAnnotations() {
+    var desiredExtractions   = Store.get('desired-extractions'),
+        desiredUnextractions = Store.get('desired-unextractions');
 
-    var systemExtractions;
-    if (systemExtractionsCompact !== null) {
-        systemExtractions = systemExtractionsCompact.map(function(systemExtractionCompact) {
-            return {startOffset: systemExtractionCompact.s,
-                    endOffset: systemExtractionCompact.e,
-                    text: getText(systemExtractionCompact.s, systemExtractionCompact.e)};
-        });
-    } else {
-        systemExtractions = null;
-    }
-
-    return {desiredExtractions: Store.get('desired-extractions'),
-            desiredUnextractions: Store.get('desired-unextractions'),
-            systemExtractions: systemExtractions,
-            query: Store.get('query')};
+    return {desiredExtractions: desiredExtractions,
+            desiredUnextractions: desiredUnextractions};
 }
 
 /**
@@ -342,10 +364,10 @@ function deleteAnnotation(startOffset) {
 }
 
 /**
- * Run the extractor with the current desired extractions / unextractions
- * @return {TextRange} text range representing the query
+ * Run the extractor with the current desired extractions / unextractions, and get the results (sys. extr. and query)
+ * @return {Object} object representing the system extractions and the query
  */
-function runExtractor() {
+function getExtractionResult() {
     var body = DocumentApp
         .getActiveDocument()
         .getBody();
@@ -365,23 +387,34 @@ function runExtractor() {
     var systemExtractions = ee.getSystemExtractions(),
         query             = ee.getQuery();
 
+    // Get only system extractions that are not overlapping with desired extractions or desired unextractions
+    var nonOverlappingSystemExtractions = systemExtractions.filter(function(systemExtraction) {
+        var annotations = desiredExtractions.concat(desiredUnextractions);
+        for (var i = 0; i < annotations.length; i++) {
+            if (TextRange.areOverlapping(systemExtraction, annotations[i])) {
+                Logger.log("overlapping, skipping this one: " + JSON.stringify(systemExtraction));
+                return false;
+            }
+        }
 
-    var systemExtractionsCompact = systemExtractions.map(function(systemExtraction) {
-        return {s:systemExtraction.startOffset, e:systemExtraction.endOffset};
+        return true;
     });
 
-    Store.set('system-extractions-compact', systemExtractionsCompact);
-
-    Store.set('query', query);
-
-    // Highlight the system extractions. Needs to be fixed to show
-    // conflicts between desired extractions / unextractions and
-    // system extractions
-    resetBackground();
-    reDrawHighlights();
-
-    return {systemExtractions: systemExtractions,
+    return {systemExtractions: nonOverlappingSystemExtractions,
             query: query};
+}
+
+/**
+ * Runs the extractor, highlights result and returns extractor results
+ * @return {Object} results of the extractor and query
+ */
+function runExtractor() {
+    var extractionResult = getExtractionResult();
+
+    // Update highlights
+    reDrawHighlights(extractionResult);
+
+    return extractionResult;
 }
 
 /**
@@ -392,43 +425,34 @@ function resetEverything() {
     resetBackground();
     saveDefaultColors();
 
+    Store.set('desired-extractions-highlight-status', 'on');
+    Store.set('desired-unextractions-highlight-status', 'on');
+    Store.set('system-extractions-highlight-status', 'on');
+
     return;
-}
-
-/**
- * Get a text portion from the document given start and end offsets
- * @param  {Number} startOffset start offset
- * @param  {Number} endOffset   end offset
- * @return {String}             text portion
- */
-function getText(startOffset, endOffset) {
-    var bodyText = DocumentApp
-        .getActiveDocument()
-        .getBody()
-        .editAsText()
-        .getText();
-
-    return bodyText.substring(startOffset, endOffset);
 }
 
 /**
  * Exports current saved system extractions to a new document, one line each
  */
 function exportExtractions() {
-    var exportDoc = DocumentApp.create("Extractions export"),
-        systemExtractionsCompact = Store.get('system-extractions-compact');
+    var desiredExtractions   = Store.get('desired-extractions'),
+        desiredUnextractions = Store.get('desired-unextractions');
 
-    if (systemExtractionsCompact === null) throw "No system extractions available";
+    if (desiredExtractions === null ||
+        desiredUnextractions === null) {
+        throw "You must have at least one desired extraction and one desired unextraction";
+    }
 
-    var systemExtractions = systemExtractionsCompact.map(function(systemExtractionCompact) {
-        return {startOffset: systemExtractionCompact.s,
-                endOffset: systemExtractionCompact.e,
-                text: getText(systemExtractionCompact.s, systemExtractionCompact.e)};
-    });
+    var systemExtractions = getExtractionResult().systemExtractions,
+        exportDoc = DocumentApp.create("Extractions export"),
+        body = exportDoc.getBody();
 
-    var body = exportDoc.getBody();
-
-    body.appendParagraph(systemExtractions.map(function(systemExtraction) {return systemExtraction.text;}).join('\n'));
+    body.appendParagraph(
+        systemExtractions.map(function(systemExtraction) {
+            return systemExtraction.text;
+        }).join('\n')
+    );
 
     var html = HtmlService
         .createHtmlOutput('<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">' +
@@ -449,7 +473,7 @@ function exportExtractions() {
 function selectAnnotation(startOffset, endOffset) {
     var doc = DocumentApp.getActiveDocument();
     var rangeBuilder = doc.newRange();
-    rangeBuilder.addElement(doc.getBody().editAsText(), startOffset, endOffset);
+    rangeBuilder.addElement(doc.getBody().editAsText(), startOffset, endOffset - 1);
 
     doc.setSelection(rangeBuilder.build());
 }
