@@ -87,6 +87,7 @@ function resetStatus() {
             $("div.query-text").empty();
             $(".query-buttons button").prop('disabled', true);
             $("#start").prop('disabled', true);
+            $("input.highlight-status").prop('checked', true);
         })
         .resetEverything();
 }
@@ -290,6 +291,8 @@ $(function(){
 
                 // Enable add extraction / unextraction buttons and start button
                 $("button.add-selection, button#start").prop("disabled", false);
+
+                $("input.highlight-status[data-type='system-extractions']").prop('checked', false);
             })
             .setHighlightStatus('system-extractions', 'off');
     });

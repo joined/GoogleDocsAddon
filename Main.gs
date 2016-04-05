@@ -454,7 +454,9 @@ function exportExtractions() {
         desiredUnextractions = Store.get('desired-unextractions');
 
     if (desiredExtractions === null ||
-        desiredUnextractions === null) {
+        desiredUnextractions === null ||
+        !desiredExtractions.length ||
+        !desiredUnextractions.length) {
         throw "You must have at least one desired extraction and one desired unextraction";
     }
 
