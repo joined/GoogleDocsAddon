@@ -312,9 +312,17 @@ function reDrawHighlights() {
  * @return {Object} array of desired extractions and unextractions
  */
 function getSavedAnnotations() {
+    var systemExtractionsCompact = Store.get('system-extractions-compact');
+
+    var systemExtractions = systemExtractionsCompact.map(function(systemExtractionCompact) {
+        return {startOffset: systemExtractionCompact.s,
+                endOffset: systemExtractionCompact.e,
+                text: getText(systemExtractionCompact.s, systemExtractionCompact.e)};
+    });
+
     return {desiredExtractions: Store.get('desired-extractions'),
             desiredUnextractions: Store.get('desired-unextractions'),
-            systemExtractions: Store.get('system-extractions')};
+            systemExtractions: systemExtractions};
 }
 
 /**
@@ -391,7 +399,12 @@ function runExtractor() {
     var systemExtractions = ee.getSystemExtractions(),
         query             = ee.getQuery();
 
-    Store.set('system-extractions', systemExtractions);
+
+    var systemExtractionsCompact = systemExtractions.map(function(systemExtraction) {
+        return {s:systemExtraction.startOffset, e:systemExtraction.endOffset};
+    });
+
+    Store.set('system-extractions-compact', systemExtractionsCompact);
 
     // Highlight the system extractions. Needs to be fixed to show
     // conflicts between desired extractions / unextractions and
@@ -415,11 +428,33 @@ function resetEverything() {
 }
 
 /**
+ * Get a text portion from the document given start and end offsets
+ * @param  {Number} startOffset start offset
+ * @param  {Number} endOffset   end offset
+ * @return {String}             text portion
+ */
+function getText(startOffset, endOffset) {
+    var bodyText = DocumentApp
+        .getActiveDocument()
+        .getBody()
+        .editAsText()
+        .getText();
+
+    return bodyText.substring(startOffset, endOffset);
+}
+
+/**
  * Exports current saved system extractions to a new document, one line each
  */
 function exportExtractions() {
     var exportDoc = DocumentApp.create("Extractions export"),
-        systemExtractions = Store.get('system-extractions');
+        systemExtractionsCompact = Store.get('system-extractions-compact');
+
+    var systemExtractions = systemExtractionsCompact.map(function(systemExtractionCompact) {
+        return {startOffset: systemExtractionCompact.s,
+                endOffset: systemExtractionCompact.e,
+                text: getText(systemExtractionCompact.s, systemExtractionCompact.e)};
+    });
 
     if (systemExtractions === null) throw "No system extractions available";
 
