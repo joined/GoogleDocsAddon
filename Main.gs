@@ -270,7 +270,7 @@ function resetBackground() {
  * Draws the highlights corresponding to the saved annotations
  */
 function reDrawHighlights() {
-    var savedAnnotations = getSavedAnnotations(),
+    var savedAnnotations = getSavedStuff(),
         desiredExtractions   = savedAnnotations.desiredExtractions,
         desiredUnextractions = savedAnnotations.desiredUnextractions,
         systemExtractions    = savedAnnotations.systemExtractions,
@@ -308,21 +308,27 @@ function reDrawHighlights() {
 }
 
 /**
- * Gets desired extractions/unextractions and system extractions saved in the store
+ * Gets desired extractions/unextractions and system extractions saved in the store, and the query
  * @return {Object} array of desired extractions and unextractions
  */
-function getSavedAnnotations() {
+function getSavedStuff() {
     var systemExtractionsCompact = Store.get('system-extractions-compact');
 
-    var systemExtractions = systemExtractionsCompact.map(function(systemExtractionCompact) {
-        return {startOffset: systemExtractionCompact.s,
-                endOffset: systemExtractionCompact.e,
-                text: getText(systemExtractionCompact.s, systemExtractionCompact.e)};
-    });
+    var systemExtractions;
+    if (systemExtractionsCompact !== null) {
+        systemExtractions = systemExtractionsCompact.map(function(systemExtractionCompact) {
+            return {startOffset: systemExtractionCompact.s,
+                    endOffset: systemExtractionCompact.e,
+                    text: getText(systemExtractionCompact.s, systemExtractionCompact.e)};
+        });
+    } else {
+        systemExtractions = null;
+    }
 
     return {desiredExtractions: Store.get('desired-extractions'),
             desiredUnextractions: Store.get('desired-unextractions'),
-            systemExtractions: systemExtractions};
+            systemExtractions: systemExtractions,
+            query: Store.get('query')};
 }
 
 /**
@@ -406,6 +412,8 @@ function runExtractor() {
 
     Store.set('system-extractions-compact', systemExtractionsCompact);
 
+    Store.set('query', query);
+
     // Highlight the system extractions. Needs to be fixed to show
     // conflicts between desired extractions / unextractions and
     // system extractions
@@ -450,13 +458,13 @@ function exportExtractions() {
     var exportDoc = DocumentApp.create("Extractions export"),
         systemExtractionsCompact = Store.get('system-extractions-compact');
 
+    if (systemExtractionsCompact === null) throw "No system extractions available";
+
     var systemExtractions = systemExtractionsCompact.map(function(systemExtractionCompact) {
         return {startOffset: systemExtractionCompact.s,
                 endOffset: systemExtractionCompact.e,
                 text: getText(systemExtractionCompact.s, systemExtractionCompact.e)};
     });
-
-    if (systemExtractions === null) throw "No system extractions available";
 
     var body = exportDoc.getBody();
 

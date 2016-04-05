@@ -1,30 +1,103 @@
 <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
 <script>
 /**
+ * Shows a query in its relative box
+ * @param  {TextRange} query   text range representing the query
+ */
+function showQuery(query) {
+    $("button.add-selection").prop('disabled', true);
+    $("div.query-text").text(query.text);
+    $("div.query-text").data('start', query.startOffset);
+    $("div.query-text").data('end', query.endOffset);
+    $("div.query").show();
+    $("button#start").prop('disabled', true);
+    $(".query-buttons button").prop("disabled", false);
+}
+
+/**
+ * Restore saved addon status getting saved data from the server
+ */
+function restoreSavedStatus() {
+    // Load previously saved stuff
+    google.script.run
+        .withSuccessHandler(function (savedStuff) {
+            var desiredExtractions   = savedStuff.desiredExtractions,
+                desiredUnextractions = savedStuff.desiredUnextractions,
+                systemExtractions    = savedStuff.systemExtractions,
+                query                = savedStuff.query;
+
+            if (desiredExtractions !== null) {
+                for (var i = 0; i < desiredExtractions.length; i++) {
+                    addAnnotationToTable(desiredExtractions[i], 'desired-extraction');
+                }
+            }
+            if (desiredUnextractions !== null) {
+                for (var j = 0; j < desiredUnextractions.length; j++) {
+                    addAnnotationToTable(desiredUnextractions[j], 'desired-unextraction');
+                }
+            }
+            if (systemExtractions !== null) {
+                $("div.system-extractions-outer").show();
+                for (var k = 0; k < systemExtractions.length; k++) {
+                    addAnnotationToTable(systemExtractions[k], 'system-extraction');
+                }
+            }
+            if (query !== null) {
+                showQuery(query);
+            }
+        })
+        .getSavedStuff();
+}
+
+/**
+ * Reset addon status
+ */
+function resetStatus() {
+    google.script.run
+        .withFailureHandler(showError)
+        .withSuccessHandler(function(){
+            $(".training-set table > tbody > tr, .system-extractions table > tbody > tr").each(function() {
+                $(this).remove();
+            });
+
+            $(".training-set span").show();
+            $(".system-extractions span").show();
+            $("button.add-selection").prop('disabled', false);
+            $("div.system-extractions-outer").hide();
+            $("div.query").hide();
+            $("div.error").empty();
+            $("div.query-text").empty();
+            $("#start").prop('disabled', true);
+        })
+        .resetEverything();
+}
+
+/**
  * Run the algorithm
  */
 function run() {
     google.script.run
-    .withFailureHandler(showError)
-    .withSuccessHandler(function(resultObject){
-        var systemExtractions = resultObject.systemExtractions,
-            query             = resultObject.query;
+        .withFailureHandler(showError)
+        .withSuccessHandler(function(resultObject){
+            var systemExtractions = resultObject.systemExtractions,
+                query             = resultObject.query;
 
-        $(".system-extractions table > tbody > tr").each(function() {
-            $(this).remove();
-        });
+            // Empty system extractions table
+            $(".system-extractions table > tbody > tr").each(function() {
+                $(this).remove();
+            });
 
-        $.each(systemExtractions, function(index, systemExtraction) {
-            addAnnotationToTable(systemExtraction, 'system-extraction');
-        });
+            // Add new system extractions
+            $.each(systemExtractions, function(index, systemExtraction) {
+                addAnnotationToTable(systemExtraction, 'system-extraction');
+            });
 
-        $("div.query-text").text(query.text);
-        $("div.query-text").data('start', query.startOffset);
-        $("div.query-text").data('end', query.endOffset);
-        $("div.query").show();
-        $("div.system-extractions-outer").show();
-    })
-    .runExtractor();
+            // Disable add annotation buttons when waiting query answer
+            $("button.add-selection").prop('disabled', true);
+            showQuery(query);
+            $("div.system-extractions-outer").show();
+        })
+        .runExtractor();
 }
 
 /**
@@ -87,43 +160,20 @@ function addAnnotationToTable(annotation, type) {
                  "<td class='" + type + "'>" + annotation.text + "</td>";
 
     // Add delete button only for desired extractions and unextractions
-    if (type !== 'system-extraction') newRow += "<td class='button-cell'><a class='delete-annotation' href='#'><img src='https://openmerchantaccount.com/img2/close_1.png' width='24' height='22' alt='remove item' border='0'></a></td>";
+    if (type !== 'system-extraction') {
+        newRow += "<td class='button-cell'><a class='delete-annotation' href='#'>" +
+                  "<img src='https://openmerchantaccount.com/img2/close_1.png' width='24' height='22' alt='Remove item' border='0'></a></td>";
+    }
 
     newRow += "</tr>";
 
     table.append(newRow);
 
     orderRows(table);
-
-    updateStartButtonStatus();
 }
 
 $(function(){
-    // Load previously saved annotations
-    google.script.run
-        .withSuccessHandler(function (annotations) {
-            var desiredExtractions   = annotations.desiredExtractions,
-                desiredUnextractions = annotations.desiredUnextractions,
-                systemExtractions    = annotations.systemExtractions;
-
-            if (desiredExtractions !== null) {
-                for (var i = 0; i < desiredExtractions.length; i++) {
-                    addAnnotationToTable(desiredExtractions[i], 'desired-extraction');
-                }
-            }
-            if (desiredUnextractions !== null) {
-                for (var j = 0; j < desiredUnextractions.length; j++) {
-                    addAnnotationToTable(desiredUnextractions[j], 'desired-unextraction');
-                }
-            }
-            if (systemExtractions !== null) {
-                $("div.system-extractions-outer").show();
-                for (var k = 0; k < systemExtractions.length; k++) {
-                    addAnnotationToTable(systemExtractions[k], 'system-extraction');
-                }
-            }
-        })
-        .getSavedAnnotations();
+    restoreSavedStatus();
 
     // Add selection as desired extraction / unextraction
     $('.add-selection').click(function () {
@@ -134,6 +184,7 @@ $(function(){
                 $('div.error').empty();
 
                 addAnnotationToTable(annotation, button.data('type'));
+                updateStartButtonStatus();
             })
             .withFailureHandler(showError)
             .addSelectionAsAnnotation(button.data('type'));
@@ -164,24 +215,7 @@ $(function(){
 
     // Reset addon status
     $("button#reset").click(function() {
-        google.script.run
-            .withFailureHandler(showError)
-            .withSuccessHandler(function(){
-                $(".training-set table > tbody > tr, .system-extractions table > tbody > tr").each(function() {
-                    $(this).remove();
-                });
-
-                $(".training-set span").show();
-                $(".system-extractions span").show();
-                $("button.add-selection").propr('disabled', false);
-                $("div.system-extractions-outer").hide();
-                $("div.query").hide();
-                $("div.error").empty();
-                $("div.query-text").empty();
-                $("div.query").hide();
-                $("#start").prop('disabled', true);
-            })
-            .resetEverything();
+        resetStatus();
     });
 
     // Export system extractions to new document
@@ -210,6 +244,9 @@ $(function(){
 
     // Binary answer to the query
     $(document).on('click', '.query-buttons .binary-answer', function () {
+        // Disable buttons temporarily so the user doesn't click multiple time
+        $(".query-buttons button").prop("disabled", true);
+
         var query = $("div.query-text", $(this).parent().parent());
 
         var newAnnotation = {startOffset: query.data('start'),
