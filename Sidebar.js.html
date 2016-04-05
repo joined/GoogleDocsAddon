@@ -100,7 +100,6 @@ function run() {
             // Disable add annotation buttons when waiting query answer
             $("button.add-selection").prop('disabled', true);
             showQuery(query);
-            console.log(JSON.stringify(query, null ,4));
             $("div.system-extractions-outer").show();
         })
         .runExtractor();

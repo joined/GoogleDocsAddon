@@ -287,7 +287,7 @@ function reDrawHighlights(extractionResult) {
             body
                 .editAsText()
                 .setBackgroundColor(systemExtractions[k].startOffset,
-                                    systemExtractions[k].endOffset - 1,
+                                    systemExtractions[k].endOffset,
                                     systemExtractionsColor);
         }
     }
@@ -297,7 +297,7 @@ function reDrawHighlights(extractionResult) {
     body
         .editAsText()
         .setBackgroundColor(query.startOffset,
-                            query.endOffset - 1,
+                            query.endOffset,
                             queryColor);
 }
 
@@ -473,7 +473,7 @@ function exportExtractions() {
 function selectAnnotation(startOffset, endOffset) {
     var doc = DocumentApp.getActiveDocument();
     var rangeBuilder = doc.newRange();
-    rangeBuilder.addElement(doc.getBody().editAsText(), startOffset, endOffset - 1);
+    rangeBuilder.addElement(doc.getBody().editAsText(), startOffset, endOffset);
 
     doc.setSelection(rangeBuilder.build());
 }
