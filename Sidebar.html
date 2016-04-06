@@ -11,31 +11,35 @@
     <div class="frame">
         <div class="block error"></div>
         <div class="block">
-            <h3>Desired extractions:</h3>
-            <input type="checkbox" checked data-type="desired-extractions" class="highlight-status">
-            <button data-type="desired-extraction" class="add-selection">Add</button>
+            <div class="annotations-head">
+                <input type="checkbox" checked data-type="desired-extractions" class="highlight-status">
+                <h3>Desired extractions:</h3>
+                <button data-type="desired-extraction" class="add-selection">Add</button>
+            </div>
             <div class="training-set desired-extractions">
                 <span class="empty-desired-extractions gray">Empty</span>
                 <table></table>
             </div>
         </div>
         <div class="block">
-            <h3>Desired unextractions:</h3>
-            <input type="checkbox" checked data-type="desired-unextractions" class="highlight-status">
-            <button data-type="desired-unextraction" class="add-selection">Add</button>
+            <div class="annotations-head">
+                <input type="checkbox" checked data-type="desired-unextractions" class="highlight-status">
+                <h3>Desired unextractions:</h3>
+                <button data-type="desired-unextraction" class="add-selection">Add</button>
+            </div>
             <div class="training-set desired-unextractions">
                 <span class="empty-desired-unextractions gray">Empty</span>
                 <table></table>
             </div>
         </div>
         <div class="block">
-            <button disabled id="start" class="action">Start</button>
+            <button disabled id="start" class="action">Extract</button>
             <button id="reset">Reset</button>
             <button class="create" id="export">Export</button>
         </div>
         <div class="block system-extractions-outer">
-            <h3>System extractions:</h3>
             <input type="checkbox" checked data-type="system-extractions" class="highlight-status">
+            <h3>System extractions:</h3>
             <div class="system-extractions">
                 <span class="empty-system-extractions gray">Empty</span>
                 <table></table>
